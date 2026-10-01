@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ScreenSkeleton, useCare } from "@/components/CareProvider";
-import { Icon, StatusBadge } from "@/components/ui";
+import { Icon, SimulatedNote, StatusBadge } from "@/components/ui";
 import {
   buildDays,
   dayRange,
@@ -28,6 +28,7 @@ import { medLabel } from "@/lib/pillbox";
 import { STATUS } from "@/lib/status";
 import { getSupabase } from "@/lib/supabase/client";
 import { formatTime, localDateKey } from "@/lib/time";
+import { AGENDA_ICON, agendaFor, eventsOn } from "@/lib/agenda";
 
 // Calendario: the person's week (default) or month. Week = one row per day that opens to show the
 // remedies of that day, the measurements and the alerts. Month = one row per week with a mark per
@@ -185,7 +186,8 @@ export default function CalendarPage() {
 // ---------------------------------------------------------------- Week
 
 function DayRow({ day, open, onToggle }: { day: CalDay; open: boolean; onToggle: () => void }) {
-  const { tz } = useCare();
+  const { tz, userId } = useCare();
+  const plans = eventsOn(agendaFor(userId, tz), day.key);
   const s = DAY_STATUS[day.status];
   const crit = day.alerts.filter((a) => a.level === "critical").length;
   const panelId = `dia-${day.key}`;
@@ -203,6 +205,12 @@ function DayRow({ day, open, onToggle }: { day: CalDay; open: boolean; onToggle:
           </span>
           <span className="text-body text-ink-muted">
             {dosesSummary(day)}
+            {plans.length > 0 && (
+              <span className="font-bold text-primary">
+                {" · "}
+                {plans.length} actividad{plans.length > 1 ? "es" : ""}
+              </span>
+            )}
             {day.alerts.length > 0 && (
               <span className={`font-bold ${crit ? "text-crit" : "text-warn"}`}>
                 {" · "}
@@ -258,8 +266,33 @@ function DayDetail({ day }: { day: CalDay }) {
     };
   }, [day.key, day.isFuture, tz, userId, vitalsKey]);
 
+  const plans = eventsOn(agendaFor(userId, tz), day.key);
+
   return (
     <div className="flex flex-col gap-4 border-t border-line px-4 pt-4 pb-5">
+      {plans.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h3 className="flex items-center gap-2 text-body-lg font-extrabold">
+            <Icon name="event" size="1.6rem" className="text-primary" />
+            Actividades
+          </h3>
+          <ul className="flex flex-col gap-2">
+            {plans.map((e) => (
+              <li key={e.id} className="flex items-start gap-3 rounded-btn bg-sunken px-3 py-2.5">
+                <Icon name={AGENDA_ICON[e.kind]} size="1.5rem" className="mt-0.5 text-primary" />
+                <span className="flex flex-col">
+                  <span className="text-body-lg font-bold">
+                    {e.time} · {e.title}
+                  </span>
+                  {e.place && <span className="text-body text-ink-muted">{e.place}</span>}
+                  {e.note && <span className="text-body text-ink-muted">{e.note}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <SimulatedNote>Agenda de demostración</SimulatedNote>
+        </section>
+      )}
       <section className="flex flex-col gap-2">
         <h3 className="flex items-center gap-2 text-body-lg font-extrabold">
           <Icon name="medication" size="1.6rem" className="text-primary" />
