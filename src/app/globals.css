@@ -140,3 +140,63 @@ label,
     animation: none;
   }
 }
+
+/* Companion mascot (src/components/Mascot.tsx). Blink is 1 per 6 s, mouth ~2 Hz: never flashing */
+.mascot {
+  overflow: visible;
+}
+.mascot-ink {
+  stroke: #1e1e1e;
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.mascot-eyes,
+.mascot-talk,
+.mascot-brows {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.2s ease;
+}
+.mascot-eyes {
+  animation: mascot-blink 6s infinite;
+}
+.mascot-float {
+  animation: mascot-float 4s ease-in-out infinite;
+}
+.mascot-talk {
+  display: none;
+}
+.mascot-speaking .mascot-smile {
+  display: none;
+}
+.mascot-speaking .mascot-talk {
+  display: inline;
+  animation: mascot-talk 0.45s ease-in-out infinite alternate;
+}
+.mascot-listening .mascot-brows {
+  transform: translateY(-4px);
+}
+.mascot-thinking .mascot-eyes {
+  transform: translate(4px, -4px);
+  animation: none;
+}
+@keyframes mascot-blink {
+  0%, 96%, 100% { transform: scaleY(1); }
+  98% { transform: scaleY(0.1); }
+}
+@keyframes mascot-talk {
+  from { transform: scaleY(0.35); }
+  to { transform: scaleY(1); }
+}
+@keyframes mascot-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mascot-eyes,
+  .mascot-float,
+  .mascot-speaking .mascot-talk {
+    animation: none;
+  }
+}

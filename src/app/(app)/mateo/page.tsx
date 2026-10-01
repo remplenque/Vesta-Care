@@ -3,57 +3,55 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useCare } from "@/components/CareProvider";
-import { Icon, MateoAvatar } from "@/components/ui";
-import { speak, useSpeechInput } from "@/hooks/useSpeech";
+import { MASCOT_HALO, MascotFace, type MascotState } from "@/components/Mascot";
+import { Icon } from "@/components/ui";
+import { useCompanionVoice } from "@/hooks/useCompanionVoice";
+import { useSpeechInput } from "@/hooks/useSpeech";
 import type { ChatMessage } from "@/lib/data";
+import { PERSONAS, type Persona } from "@/lib/mateo/prompt";
 import { getSupabase } from "@/lib/supabase/client";
 import { firstName } from "@/lib/time";
 
-type Meta = { via?: "voice" | "text" };
+// 06 · Chat with the companion. The face is the mic (single tap, ACCESSIBILITY §6); one message
+// at a time in a fixed-height bubble that scrolls inside (with a "Ver más" button, §6: no gesture
+// is the only way); "Repetir" replays the same recording (§7); tap-to-answer suggestions.
+// History is persisted in chat_messages and sent to /api/mateo as context.
 
-function Bubble({ m }: { m: ChatMessage }) {
-  if (m.role === "user") {
-    const via = (m.metadata as Meta | null)?.via;
-    return (
-      <div className="flex flex-col items-end gap-1.5">
-        <div className="max-w-[85%] rounded-[22px_22px_6px_22px] bg-primary px-[18px] py-4 text-body-lg text-white">{m.content}</div>
-        {via === "voice" && (
-          <span className="flex items-center gap-1.5 text-small text-ink-subtle">
-            <Icon name="mic" size="1.15rem" />
-            Dicho por voz
-          </span>
-        )}
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-end gap-2.5">
-      <MateoAvatar size={36} />
-      <div className="flex max-w-[85%] flex-col gap-2">
-        <div className="rounded-[22px_22px_22px_6px] border border-line bg-surface px-[18px] py-4 text-body-lg">{m.content}</div>
-        <button
-          type="button"
-          onClick={() => speak(m.content ?? "")}
-          className="flex min-h-12 cursor-pointer items-center gap-2 self-start rounded-full bg-sunken px-3.5 text-body font-bold text-primary"
-        >
-          <Icon name="volume_up" size="1.4rem" />
-          Escuchar
-        </button>
-      </div>
-    </div>
-  );
-}
+const START = ["¿Cómo estoy hoy?", "¿Qué hago?", "Cuénteme algo bonito"];
+const PERSONA_KEY = "vesta.persona";
+
+type Api = { reply: string; suggestions?: string[]; fallback?: boolean };
 
 function Chat() {
   const params = useSearchParams();
   const { userId, data } = useCare();
   const supabase = getSupabase();
-  const [messages, setMessages] = useState<ChatMessage[] | null>(null);
+  const voice = useCompanionVoice();
+
+  // Companion choice survives reloads (per-device convenience, not health data). Client-only
+  // screen (CareProvider never renders on the server), so localStorage is safe here.
+  const [persona, setPersona] = useState<Persona>(() => {
+    try {
+      const saved = localStorage.getItem(PERSONA_KEY);
+      if (PERSONAS.includes(saved as Persona)) return saved as Persona;
+    } catch {}
+    return "Mateo";
+  });
+  const [history, setHistory] = useState<ChatMessage[]>([]);
+  const [said, setSaid] = useState("");
+  const [reply, setReply] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>(START);
+  const [thinking, setThinking] = useState(false);
+  const [chatting, setChatting] = useState(false);
   const [keyboard, setKeyboard] = useState(false);
   const [draft, setDraft] = useState("");
-  const [thinking, setThinking] = useState(false);
-  const bottom = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  const textBox = useRef<HTMLDivElement>(null);
   const autoStarted = useRef(false);
+
+  const name = firstName(data?.profile?.full_name);
+  const hello = `¡Hola${name ? `, ${name}` : ""}! Soy ${persona}, qué alegría que conversemos. Tóqueme para hablar.`;
+  const shown = chatting ? reply : hello;
 
   useEffect(() => {
     supabase
@@ -61,60 +59,111 @@ function Chat() {
       .select("*")
       .eq("user_id", userId)
       .in("role", ["user", "assistant"])
-      .order("ts")
-      .limit(100)
-      .then(({ data }) => setMessages(data ?? []));
+      .order("ts", { ascending: false })
+      .limit(12)
+      .then(({ data }) => setHistory((data ?? []).reverse()));
   }, [supabase, userId]);
 
+  // "Ver más" appears only while there is unread text below
+  const updateMore = useCallback(() => {
+    const el = textBox.current;
+    if (!el) return;
+    setMore(el.scrollHeight > el.clientHeight + 4 && el.scrollTop + el.clientHeight < el.scrollHeight - 8);
+  }, []);
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, thinking]);
+    textBox.current?.scrollTo({ top: 0 });
+    requestAnimationFrame(updateMore);
+  }, [shown, said, updateMore]);
 
   const send = useCallback(
     async (text: string, via: "voice" | "text") => {
       const content = text.trim();
-      if (!content) return;
-      const { data: userMsg } = await supabase.from("chat_messages").insert({ user_id: userId, role: "user", content, metadata: { via } }).select().single();
-      const history = [...(messages ?? []), ...(userMsg ? [userMsg] : [])];
-      setMessages(history);
+      if (!content || thinking) return;
+      voice.stop();
+      setChatting(true);
+      setSaid(content);
       setThinking(true);
+      const { data: userMsg } = await supabase
+        .from("chat_messages")
+        .insert({ user_id: userId, role: "user", content, metadata: { via, persona } })
+        .select()
+        .single();
+      const next = [...history, ...(userMsg ? [userMsg] : [])].slice(-12);
+      setHistory(next);
+      let answer: Api;
       try {
         const res = await fetch("/api/mateo", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: history.map((m) => ({ role: m.role, content: m.content })) }),
+          body: JSON.stringify({ persona, messages: next.map((m) => ({ role: m.role, content: m.content ?? "" })) }),
         });
-        const { reply } = (await res.json()) as { reply: string };
-        const { data: botMsg } = await supabase.from("chat_messages").insert({ user_id: userId, role: "assistant", content: reply }).select().single();
-        if (botMsg) setMessages((ms) => [...(ms ?? []), botMsg]);
-        if (via === "voice") speak(reply);
+        if (!res.ok) throw new Error(String(res.status));
+        answer = (await res.json()) as Api;
       } catch {
-        setMessages((ms) => [
-          ...(ms ?? []),
-          { id: crypto.randomUUID(), user_id: userId, role: "assistant", content: "No pude responderle. ¿Lo intentamos de nuevo?", metadata: {}, ts: new Date().toISOString() },
-        ]);
-      } finally {
-        setThinking(false);
+        answer = { reply: "No pude responderle. ¿Lo intentamos de nuevo?", suggestions: [content], fallback: true };
       }
+      setThinking(false);
+      setReply(answer.reply);
+      setSuggestions(answer.suggestions?.length ? answer.suggestions : START);
+      voice.speak(answer.reply, persona);
+      const { data: botMsg } = await supabase
+        .from("chat_messages")
+        .insert({ user_id: userId, role: "assistant", content: answer.reply, metadata: { persona, fallback: !!answer.fallback } })
+        .select()
+        .single();
+      if (botMsg) setHistory((h) => [...h, botMsg].slice(-12));
     },
-    [supabase, userId, messages],
+    [history, persona, supabase, thinking, userId, voice],
   );
 
   const speech = useSpeechInput((text) => send(text, "voice"));
 
   // "Hablar con Mateo" on Inicio opens this screen already listening
   useEffect(() => {
-    if (params.get("voz") === "1" && speech.supported && messages && !autoStarted.current) {
+    if (params.get("voz") === "1" && speech.supported && !autoStarted.current) {
       autoStarted.current = true;
       speech.start();
     }
-  }, [params, speech, messages]);
+  }, [params, speech]);
 
-  // Without speech recognition (Safari, Firefox) the keyboard is the only input
   const typingMode = keyboard || !speech.supported;
   const contact = data?.contacts.find((c) => c.phone);
-  const name = firstName(data?.profile?.full_name);
-  const chips = ["¿Cómo estoy hoy?", "¿Qué hago?"];
+  const state: MascotState = speech.listening ? "listening" : thinking ? "thinking" : voice.speaking ? "speaking" : "idle";
+  const status = speech.listening
+    ? speech.interim
+      ? `"${speech.interim}…"`
+      : "Le escucho… toque de nuevo para terminar"
+    : thinking
+      ? "Pensando…"
+      : voice.speaking
+        ? `${persona} está hablando`
+        : voice.blocked
+          ? "Toque «Repetir» para escucharme"
+          : speech.supported
+            ? `Toque a ${persona} para hablar`
+            : "Este navegador no permite hablar. Puede escribir abajo.";
+
+  function tapFace() {
+    if (thinking) return;
+    if (!speech.supported) return setKeyboard(true);
+    if (speech.listening) return speech.stop();
+    voice.stop();
+    speech.start();
+  }
+
+  function choose(p: Persona) {
+    if (p === persona) return;
+    setPersona(p);
+    try {
+      localStorage.setItem(PERSONA_KEY, p);
+    } catch {}
+    const text = `¡Hola${name ? `, ${name}` : ""}! Soy ${p}. ¿Cómo está hoy?`;
+    setChatting(true);
+    setSaid("");
+    setReply(text);
+    setSuggestions(START);
+    voice.speak(text, p);
+  }
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -123,103 +172,119 @@ function Chat() {
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="flex items-center gap-3.5 border-b border-line px-6 pt-6 pb-4">
-        <MateoAvatar size={52} />
-        <div className="flex flex-col">
-          <h1 className="text-lead font-extrabold">Mateo</h1>
-          <span className="text-body text-ink-muted">Su acompañante</span>
+    <div className="flex h-[calc(100dvh-88px-env(safe-area-inset-bottom))] flex-col overflow-hidden">
+      <header className="flex shrink-0 items-center justify-between gap-3 px-5 pt-5">
+        <span className="text-body font-bold text-ink-muted">Su acompañante</span>
+        <div role="group" aria-label="Con quién quiere conversar" className="flex rounded-full border-2 border-line-strong bg-surface p-1">
+          {PERSONAS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              aria-pressed={p === persona}
+              onClick={() => choose(p)}
+              className={`min-h-14 cursor-pointer rounded-full px-5 text-body font-bold ${p === persona ? "bg-primary text-white" : "text-ink-muted"}`}
+            >
+              {p}
+            </button>
+          ))}
         </div>
       </header>
 
-      <div className="flex flex-col gap-[18px] px-5 pt-5" aria-live="polite">
-        {messages && messages.length === 0 && (
-          <div className="flex items-end gap-2.5">
-            <MateoAvatar size={36} />
-            <div className="max-w-[85%] rounded-[22px_22px_22px_6px] border border-line bg-surface px-[18px] py-4 text-body-lg">
-              Hola{name ? ` don ${name}` : ""}. Soy Mateo. Puede preguntarme cómo está o qué hacer si se siente mal.
+      <div className="flex min-h-0 flex-1 flex-col items-center gap-3 px-5 pt-3">
+        <button
+          type="button"
+          onClick={tapFace}
+          aria-label={speech.listening ? "Dejar de escuchar" : `Hablar con ${persona}`}
+          className={`relative shrink-0 cursor-pointer rounded-full transition-[width] duration-300 ${MASCOT_HALO[persona]} ${
+            speech.listening ? "listening" : ""
+          } ${chatting ? "w-[min(150px,40vw,20dvh)]" : "w-[min(240px,62vw,30dvh)]"} aspect-square`}
+        >
+          <MascotFace persona={persona} state={state} className="absolute inset-0 h-full w-full" />
+        </button>
+
+        <p role="status" className={`shrink-0 text-center text-body font-bold ${speech.listening ? "text-crit" : "text-ink-muted"}`}>
+          {status}
+        </p>
+
+        <section className="flex min-h-[120px] w-full shrink flex-col rounded-card border border-line bg-surface">
+          <div className="flex min-h-0 flex-1 gap-3 p-4">
+            <div ref={textBox} onScroll={updateMore} aria-live="polite" className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
+              {said && <p className="mb-1.5 text-body text-ink-muted">Usted: “{said}”</p>}
+              <p className="text-body-lg font-semibold">{thinking ? "Pensando…" : shown}</p>
             </div>
+            <button
+              type="button"
+              onClick={() => (voice.speaking ? voice.stop() : voice.replay() || voice.speak(shown, persona))}
+              aria-label={voice.speaking ? "Detener la voz" : "Repetir en voz alta"}
+              className="flex min-h-16 w-[88px] shrink-0 cursor-pointer flex-col items-center justify-center gap-0.5 self-start rounded-btn border-2 border-primary bg-primary-soft text-small font-bold text-primary"
+            >
+              <Icon name={voice.speaking ? "stop" : "volume_up"} fill size="1.75rem" />
+              {voice.speaking ? "Detener" : "Repetir"}
+            </button>
           </div>
-        )}
-        {messages?.map((m) => <Bubble key={m.id} m={m} />)}
-        {thinking && (
-          <div className="flex items-end gap-2.5">
-            <MateoAvatar size={36} />
-            <div className="rounded-[22px_22px_22px_6px] border border-line bg-surface px-[18px] py-4 text-body-lg text-ink-muted">Pensando…</div>
-          </div>
-        )}
-        <div ref={bottom} />
+          {more && (
+            <button
+              type="button"
+              onClick={() => textBox.current?.scrollBy({ top: textBox.current.clientHeight * 0.8, behavior: "smooth" })}
+              className="mx-4 mb-3 flex min-h-14 cursor-pointer items-center justify-center gap-1.5 rounded-btn border-2 border-line-strong text-body font-bold text-primary"
+            >
+              <Icon name="expand_more" size="1.6rem" />
+              Ver más
+            </button>
+          )}
+        </section>
+
+        <div role="group" aria-label="Respuestas rápidas" className="flex shrink-0 flex-wrap justify-center gap-3 pb-3">
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              type="button"
+              disabled={thinking}
+              onClick={() => send(s, "text")}
+              className="min-h-14 cursor-pointer rounded-full border-2 border-primary bg-surface px-[18px] text-body font-bold text-primary active:bg-primary-soft disabled:opacity-45"
+            >
+              {s}
+            </button>
+          ))}
+          {contact?.phone && (
+            <a
+              href={`tel:${contact.phone.replace(/\s+/g, "")}`}
+              className="inline-flex min-h-14 items-center gap-2 rounded-full border-2 border-primary bg-surface px-[18px] text-body font-bold text-primary active:bg-primary-soft"
+            >
+              <Icon name="call" size="1.4rem" />
+              Llamar a {firstName(contact.name)}
+            </a>
+          )}
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-2.5 px-5 pt-5">
-        {chips.map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => send(c, "text")}
-            className="min-h-14 cursor-pointer rounded-full border-2 border-primary bg-surface px-[18px] text-body font-bold text-primary active:bg-primary-soft"
-          >
-            {c}
-          </button>
-        ))}
-        {contact?.phone && (
-          <a
-            href={`tel:${contact.phone.replace(/\s+/g, "")}`}
-            className="inline-flex min-h-14 items-center rounded-full border-2 border-primary bg-surface px-[18px] text-body font-bold text-primary active:bg-primary-soft"
-          >
-            Llamar a {firstName(contact.name)}
-          </a>
-        )}
-      </div>
-
-      <div className="sticky bottom-[88px] z-20 mt-auto flex flex-col items-center gap-3.5 border-t border-line bg-surface px-6 pt-5 pb-4">
+      <div className="flex shrink-0 items-center gap-3 border-t border-line bg-surface px-5 py-3">
         {typingMode ? (
-          <form onSubmit={submit} className="flex w-full items-center gap-3">
+          <form onSubmit={submit} className="flex flex-1 items-center gap-3">
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="Escriba su pregunta"
-              aria-label="Escriba su pregunta"
-              className="min-h-14 flex-1 rounded-btn border-2 border-line-strong bg-surface px-4 text-body-lg focus:border-primary"
+              placeholder="Escriba aquí"
+              aria-label="Escriba su mensaje"
+              className="min-h-14 min-w-0 flex-1 rounded-btn border-2 border-line-strong bg-surface px-4 text-body-lg focus:border-primary"
             />
             <button type="submit" aria-label="Enviar" className="flex min-h-14 min-w-14 cursor-pointer items-center justify-center rounded-btn bg-primary text-white">
               <Icon name="send" size="1.6rem" />
             </button>
           </form>
         ) : (
-          <div className="min-h-[30px] text-center text-body-lg text-ink-muted italic">{speech.interim ? `"${speech.interim}…"` : ""}</div>
+          <span className="flex-1 text-body text-ink-muted">También puede escribir</span>
         )}
-        <div className="flex w-full items-center justify-between">
-          {speech.supported ? (
-            <button
-              type="button"
-              onClick={() => setKeyboard((k) => !k)}
-              className="flex min-h-14 min-w-[72px] cursor-pointer flex-col items-center gap-0.5 text-body font-bold text-primary"
-            >
-              <Icon name={keyboard ? "mic" : "keyboard"} size="1.75rem" />
-              {keyboard ? "Hablar" : "Escribir"}
-            </button>
-          ) : (
-            <span className="min-w-[72px]" />
-          )}
-          {speech.supported && !typingMode && (
-            <div className="flex flex-col items-center gap-3">
-              <button
-                type="button"
-                onClick={() => (speech.listening ? speech.stop() : speech.start())}
-                aria-label={speech.listening ? "Dejar de escuchar" : "Hablar con Mateo"}
-                className={`mt-4 flex h-[92px] w-[92px] cursor-pointer items-center justify-center rounded-full ${
-                  speech.listening ? "listening bg-brand text-ink" : "bg-primary text-white"
-                }`}
-              >
-                <Icon name={speech.listening ? "stop" : "mic"} fill size="2.75rem" />
-              </button>
-              <span className="mt-2.5 text-body font-extrabold">{speech.listening ? "Escuchando…" : "Hablar"}</span>
-            </div>
-          )}
-          <span className="min-w-[72px]" />
-        </div>
-        {!speech.supported && <span className="text-small text-ink-subtle">Este navegador no permite hablar. Puede escribir.</span>}
+        {speech.supported && (
+          <button
+            type="button"
+            onClick={() => setKeyboard((k) => !k)}
+            className="flex min-h-14 min-w-[72px] cursor-pointer flex-col items-center justify-center gap-0.5 text-small font-bold text-primary"
+          >
+            <Icon name={keyboard ? "mic" : "keyboard"} size="1.75rem" />
+            {keyboard ? "Hablar" : "Escribir"}
+          </button>
+        )}
       </div>
     </div>
   );

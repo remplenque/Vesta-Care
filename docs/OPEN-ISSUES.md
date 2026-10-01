@@ -10,7 +10,7 @@
 | 1 | **Migraciones fuera del repo** | Solo están los tipos generados. Un clon limpio no puede recrear la base, y RLS, `CHECK`, triggers y el cuerpo de las funciones no se pueden revisar | Commitear la carpeta `supabase/` (migraciones, `seed.sql`, funciones) o, como mínimo, un dump del esquema |
 | 2 | **Sin tabla para Web Push** | El acta pide Web Push al usuario, pero el esquema no tiene dónde guardar las suscripciones del navegador | Agregar `push_subscriptions (id, user_id, endpoint, p256dh, auth, created_at)` y regenerar tipos |
 | 3 | **"Dosis omitida > 30 min" no tiene disparador** | `ingest_reading` reacciona cuando llega una lectura. Una dosis omitida es una lectura que **no** llega, así que nada la evalúa | Job periódico (Supabase Cron / `pg_cron`) o que el simulador lo emita como escenario explícito |
-| 4 | **Proveedor de LLM** | Pendiente desde el acta §10 | Decidir según créditos. El código legacy usa Gemini (`gemini-2.5-flash`) |
+| 4 | **Proveedor de LLM** | En uso: Anthropic `claude-haiku-4-5` vía AI SDK (`/api/mateo`), por créditos disponibles. Falta confirmarlo con el equipo | Cambiar de proveedor = otro paquete `@ai-sdk/*` y su clave; el prompt y los filtros (`src/lib/mateo/`) no cambian. El legacy usa Gemini |
 | 5 | **Roles P1 / P2 / P3** | Sin asignar (acta §10). Tampoco quién presenta y quién opera el demo | Asignar ahora. Baptiste ya trabaja el esquema Supabase |
 
 ## 2. Por confirmar en la base
