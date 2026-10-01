@@ -47,8 +47,10 @@ function Chooser() {
     try {
       localStorage.setItem(PERSONA_KEY, chosen);
     } catch {}
+    // Next: the guided caregivers step, which then continues to where the person was going
     const target = params.get("next");
-    router.replace(target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio");
+    const next = target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio";
+    router.replace(`/cuidadores?next=${encodeURIComponent(next)}`);
   }
 
   return (

@@ -8,3 +8,14 @@ export function toChileanMobile(input: string): string | null {
   return /^9\d{8}$/.test(digits) ? `+56${digits}` : null;
 }
 
+
+/** "+569XXXXXXXX" → "9 XXXX XXXX" for reading on screen */
+export function displayMobile(e164: string) {
+  const d = e164.replace(/^\+56/, "");
+  return `${d.slice(0, 1)} ${d.slice(1, 5)} ${d.slice(5)}`;
+}
+
+/** Digit by digit, so the voice reads "nueve, cinco, cuatro…" instead of "cinco mil…" */
+export function spokenMobile(e164: string) {
+  return e164.replace(/^\+56/, "").split("").join(", ");
+}
