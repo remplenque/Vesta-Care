@@ -1,8 +1,9 @@
 # Acta — Vesta Care
 
-> **Documento histórico.** Esta acta (10:54) fue superada por la especificación v3 (`docs/00`–`09`,
-> 11:09). Ante cualquier diferencia, gana `docs/` y `AGENTS.md`. Qué se conservó, qué cambió y qué
-> ideas de acá siguen sirviendo para el pitch: `docs/10-OPEN-ISSUES.md` §1.
+> **Documento vigente: fuente de verdad del producto.** El equipo decidió seguir este plan con
+> Supabase. La especificación v3 (Flask + SQLite) quedó descartada en `docs/archive/v3/`.
+> El esquema real ya evolucionó respecto de §5: manda `src/types/supabase.ts`, explicado en
+> `docs/DATA-MODEL.md`.
 
 **Fecha:** jueves 1 de octubre de 2026
 **Contexto:** Hackatón de 8 horas · demo en vivo + pitch presencial de 3 min

@@ -5,174 +5,131 @@
 
 ## 1. Qué estamos construyendo
 
-**Vesta Care** es una **PWA** para que una persona mayor se gestione a sí misma: sus
-medicamentos, su salud, su agenda y su vida social. La puerta de entrada no es un menú: es el
-**asistente**, que la opera por ella hablando.
+**Vesta Care** centraliza el monitoreo de salud de adultos mayores que **viven solos o en su
+casa**. Cada persona tiene su propia PWA con su información de cuidado, y ve si cumple sus
+objetivos.
 
-```
-El usuario le habla al asistente  →  usa herramientas  →  cambia el estado de la app
-   "recuérdame la pastilla            agregar_medicamento()     aparece en el pastillero
-    de la presión a las 8"            crear_recordatorio()      y llega una notificación
-```
+- **Mateo**, un agente, está al centro: analiza la información, da sugerencias y feedback, y
+  explica las alertas.
+- **Plataforma modular:** el usuario activa módulos según sus condiciones (pastillero, presión,
+  frecuencia cardíaca, glucosa). **Todos los dispositivos son simulados.**
+- **Alertas** al usuario y a sus contactos de emergencia: WhatsApp **simulado** + Web Push. El
+  contacto tiene una vista web de solo lectura.
+- **Umbrales personalizados** a partir de la ficha médica en PDF: Mateo extrae, el usuario confirma.
+- **Independencia:** accesible pero no infantilizada. Referencia de UX: BondUp.
 
-**El asistente es el producto, no un chatbot pegado al costado.** Todo lo que el usuario pueda
-hacer tocando pantallas debe poder pedirlo hablando. Y al revés: todo lo que haga el asistente
-tiene que quedar visible en la pantalla del módulo correspondiente.
+Fuentes de verdad, en este orden:
 
-**La tesis:** hoy esto requeriría cinco aplicaciones distintas. Vesta las junta en una, con voz.
+1. **Datos:** `src/types/supabase.ts` (generado) → explicado en `docs/DATA-MODEL.md`
+2. **Producto:** `docs/acta-vesta-care.md`
+3. **Interfaz:** `docs/ACCESSIBILITY.md`
 
-Contexto completo: `docs/00-CONTEXT.md`. Arquitectura: `docs/01-ARCHITECTURE.md`.
+## 2. Stack
 
-## 2. El asistente tiene dos nombres: Mateo y Emilia
-
-El usuario elige con quién quiere hablar al entrar por primera vez. **No son dos personajes
-distintos: son la misma persona con dos presentaciones.**
-
-| | Mateo | Emilia |
-|---|---|---|
-| Relación | Sobrino | Sobrina |
-| Edad | 15 | 15 |
-| Voz | Masculina (`ELEVENLABS_VOICE_ID_MATEO`) | Femenina (`ELEVENLABS_VOICE_ID_EMILIA`) |
-| Personalidad | **Idéntica** | **Idéntica** |
-
-**Reglas duras para el código:**
-
-1. **Nunca hardcodees "Mateo" en ningún string.** Siempre `{agente_nombre}`, desde el perfil.
-   Un "Hola, soy Mateo" fijo en el HTML es un bug.
-2. **El género gramatical se resuelve con una variable**, no con condicionales desperdigados.
-   `agente.articulo` → *"tu sobrino"* / *"tu sobrina"*. Centralizado en un solo lugar.
-3. **El prompt del sistema es uno solo**, parametrizado. No hay `mateo.md` y `emilia.md`:
-   hay `asistente.md` con `{agente_nombre}` y `{agente_genero}`.
-4. **Los textos de la interfaz se escriben neutros** cuando se pueda: *"Tu asistente"*,
-   *"Volver al chat"*, en vez de forzar el nombre en cada botón.
-5. Se puede cambiar de asistente desde el perfil, en cualquier momento, sin perder datos.
-
-Detalle completo en `docs/03-MODULE-ASISTENTE.md`.
-
-## 3. Qué se reutiliza del repositorio Mateo
-
-El agente **ya existe**. Viene de `Mateo-main` (hackathon de Agentes IA, octubre 2025).
-
-El código original está descomprimido en **`legacy/Mateo-main/`** (rutas de abajo relativas a
-esa carpeta). Mapa archivo por archivo, y bugs conocidos, en `legacy/README.md`.
-
-| Se conserva | Dónde estaba | Qué cambia |
-|---|---|---|
-| Agente Pydantic AI + Gemini | `Backend/app.py` | Deja de ser solo conversacional: gana **tools** |
-| Voz con ElevenLabs | `call_elevenlabs()` | Dos voces en vez de una |
-| Backend Flask + CORS | `Backend/app.py` | Se extiende y además **sirve la PWA** |
-| Reporte de conversación | `ConversationReport` | Pasa a ser el resumen semanal (P2) |
-| Persona del agente | `Agente/instruccion.txt` | Se amplía y se parametriza por nombre y género |
-| **Plantilla de chat** | `Frontend/.../chat.html` | Referencia de UI; se reescribe como componente |
-
-| Se descarta | Por qué |
+| Capa | Decisión |
 |---|---|
-| Django como servidor | Flask ya está y sirve la PWA sin agregar un segundo proceso |
-| Bucle de voz por consola | El micrófono ahora es del navegador |
-| SendGrid | Reemplazado por notificaciones; el correo a la familia queda P2 |
+| App | PWA con **Next.js** |
+| Datos | **Supabase**: Postgres, Auth, RLS, Realtime, Storage, funciones RPC |
+| Agente | Vercel AI SDK, proveedor intercambiable por configuración (por definir: `docs/OPEN-ISSUES.md` #4) |
+| Voz | Web Speech API (STT y TTS en el navegador) |
+| Hardware | Ninguno. Simulador + panel de escenarios |
 
-> **No borres el código viejo.** Muévelo a `legacy/`. En una hackathon, un archivo que ya
-> funciona vale más que uno elegante.
+```
+Simulador ──► ingest_reading / ingest_bp ──► readings
+                        │
+                        ▼
+              evaluate_level (umbrales de user_modules) ──► alerts
+                                                              │
+                     ┌────────────────────────┬───────────────┤
+                     ▼                        ▼               ▼
+          outbound_messages ──►      Web Push al usuario    Mateo redacta
+          /demo/whatsapp                                    alerts.explanation
+                                         Realtime ──► PWA del usuario y vista /c/[token]
+```
+
+## 3. Reglas no negociables
+
+1. **Las alertas las decide el motor de reglas determinista, nunca el LLM.** Mateo explica,
+   sugiere y redacta (acta §4).
+2. **`src/types/supabase.ts` no se edita a mano.** Para cambiar el esquema: migración en Supabase,
+   regenerar los tipos y commitear ambos con el código que los usa. Los comandos están en
+   `docs/DATA-MODEL.md`.
+3. **No inventes tablas, columnas ni funciones.** Si no está en los tipos generados, no existe.
+4. **RLS por `user_id` en toda tabla del usuario.** La vista del contacto entra **solo** por
+   `get_contact_view(p_token)`, nunca leyendo tablas directo.
+5. **`SUPABASE_SERVICE_ROLE_KEY` solo en el servidor** (route handlers, Edge Functions). Nunca en
+   código de cliente ni con prefijo `NEXT_PUBLIC_`. Nada de secretos en el repo: todo por `.env`.
+6. **Esto no es un dispositivo médico.** Mateo no diagnostica, no modifica dosis y siempre deriva a
+   un profesional o al **131**.
+7. **Todo lo simulado se declara.** Las lecturas llevan su `source`, y WhatsApp es un simulador:
+   **nunca se envía un mensaje real**.
+8. **Nada extraído por el LLM se usa sin confirmación.** Ficha y umbrales pasan por
+   `medical_records.confirmed` / `user_modules.confirmed`.
+9. **Agregar un módulo = manifiesto (`modules.manifest`) + generador en el simulador.** El núcleo
+   no se toca.
+10. **La accesibilidad es vinculante desde el primer componente** (`docs/ACCESSIBILITY.md`). Texto
+    chico, contraste bajo o un botón de 32 px son **bugs**.
 
 ## 4. Estructura del repositorio
-
-Cada carpeta de trabajo tiene su propio `AGENTS.md` con dueño, prioridades, archivos → sección
-de la especificación y criterios de aceptación. **Léelo antes de tocar esa carpeta.**
 
 ```
 /
 ├── AGENTS.md                  ← este archivo
-├── .env.example               ← copiar a .env (el .env nunca se commitea)
-├── docs/                      ← especificaciones 00–09
-│   ├── 10-OPEN-ISSUES.md      ← contradicciones entre docs y decisiones pendientes
-│   └── archive/               ← acta original (superada por esta versión)
-├── scripts/
-│   ├── dev.sh                 ← Flask :5000 + Vite :5173
-│   └── tunnel.sh              ← URL HTTPS para abrir desde el teléfono
-├── web/                       ← PWA (Vite + React + TypeScript) · web/AGENTS.md
-│   ├── public/
-│   │   ├── manifest.webmanifest
-│   │   └── icons/             ← 192, 512, maskable
-│   ├── src/
-│   │   ├── routes/
-│   │   │   ├── Asistente.tsx  ← pantalla de entrada
-│   │   │   ├── Salud.tsx
-│   │   │   ├── Agenda.tsx
-│   │   │   └── Comunidad.tsx
-│   │   ├── lib/
-│   │   │   ├── api.ts         ← único lugar que habla con el servidor
-│   │   │   ├── types.ts       ← espeja 02-DATA-CONTRACTS.md
-│   │   │   ├── db.ts          ← IndexedDB, copia offline
-│   │   │   ├── push.ts        ← suscripción Web Push
-│   │   │   └── alarma.ts      ← ★ respaldo en primer plano (ver 06)
-│   │   ├── sw.ts              ← service worker
-│   │   └── theme.ts           ← tokens de accesibilidad (ver 08)
-│   └── vite.config.ts         ← vite-plugin-pwa
-├── server/                    ← Flask (heredado de Mateo-main) · server/AGENTS.md
-│   ├── app.py                 ← rutas + sirve web/dist
-│   ├── agent/
-│   │   ├── asistente.py
-│   │   ├── persona.py         ← ★ Mateo / Emilia: único lugar con los nombres
-│   │   ├── tools.py           ← ★ las herramientas
-│   │   └── prompts/asistente.md
-│   ├── modules/
-│   │   ├── health.py
-│   │   ├── community.py
-│   │   └── agenda.py
-│   ├── scheduler.py           ← ★ APScheduler: dispara los recordatorios
-│   ├── push.py                ← Web Push (VAPID)
-│   ├── store.py               ← SQLite
-│   ├── models.py              ← Pydantic, espeja 02-DATA-CONTRACTS.md
-│   ├── voice.py               ← ElevenLabs, dos voces
-│   └── seed.py                ← carga shared/seed/*.json
-├── shared/seed/               ← datos de demo · shared/seed/README.md
-└── legacy/Mateo-main/         ← código original, solo lectura · legacy/README.md
+├── README.md
+├── docs/
+│   ├── acta-vesta-care.md     ← ★ producto, plan de 8 h, demo
+│   ├── DATA-MODEL.md          ← ★ el esquema explicado
+│   ├── ACCESSIBILITY.md       ← reglas de interfaz (vinculante)
+│   ├── OPEN-ISSUES.md         ← bloqueantes y decisiones pendientes
+│   └── archive/v3/            ← spec v3 (Flask + SQLite), DESCARTADA. Solo consulta
+├── src/
+│   └── types/supabase.ts      ← ★ generado desde Supabase (Baptiste)
+├── legacy/                    ← solo lectura · legacy/README.md
+│   ├── Mateo-main/            ← agente Mateo original (Python, 2025)
+│   └── vesta-v3/              ← scaffold de la v3 descartada
+└── Mateo-main.zip             ← zip original del legacy
 ```
 
-## 5. Reglas no negociables
+Rutas de la app que define el acta (por crear): PWA del usuario, vista del contacto `/c/[token]`,
+simulador de WhatsApp `/demo/whatsapp` y panel de escenarios. La estructura del proyecto Next.js
+la fija quien lo cree; actualizar este árbol en el mismo commit.
 
-1. **Todo módulo nuevo expone tools al asistente.** Un módulo que solo tiene pantalla no está
-   terminado.
-2. **No inventes endpoints, campos ni tools.** Si no está en `docs/02-DATA-CONTRACTS.md`, no
-   existe. Agrégalo primero ahí, en el mismo commit.
-3. **Ningún string con "Mateo" o "Emilia" escrito a mano.** Ver §2. Únicas excepciones:
-   `server/agent/persona.py` y los literales `"mateo" | "emilia"` del contrato en
-   `web/src/lib/types.ts` y `server/models.py`.
-4. **La accesibilidad es vinculante desde el primer componente.** `docs/08-ACCESSIBILITY.md`.
-   Texto chico, contraste bajo o un botón de 32 px son **bugs**.
-5. **El recordatorio tiene dos caminos y el de respaldo se construye primero.**
-   `docs/06-MODULE-AGENDA.md` §4. Un recordatorio que solo funciona con push es un recordatorio
-   que falla en el demo.
-6. **Esto no es un dispositivo médico.** Vesta recuerda, registra y acompaña. No diagnostica.
-7. **Offline primero.** El pastillero y la agenda del día se leen desde IndexedDB y funcionan sin
-   red. La red mejora la experiencia, no la habilita.
-8. **Nada de secretos en el repositorio.** Todo por `.env`.
+## 5. Convenciones
 
-## 6. Convenciones
+- **Idioma:** código, variables y commits en **inglés** (el esquema ya lo está). Texto visible y
+  prompts en **español de Chile**.
+- **Hora:** `timestamptz` en UTC; se muestra en `profiles.timezone`.
+- **Commits:** `tipo(ámbito): descripción` → `feat(alerts): add critical bp scenario`.
 
-- **Idioma:** código, variables y commits en **inglés**. Texto visible, prompts y nombres de
-  tools en **español de Chile**.
-  (Las tools en español a propósito: el modelo razona mejor sobre `agendar_hora_medica` cuando
-  el usuario habla en castellano.)
-- **Zona horaria:** `America/Santiago`. Se transmite UTC ISO-8601 con `Z`; se formatea local al
-  mostrar. **El scheduler del servidor trabaja en hora local de Chile** — es el único lugar donde
-  eso aplica, y está documentado en `07-MODULE-BACKEND.md` §5.
-- **Python** 3.11+, tipado en firmas públicas, Pydantic v2. **TypeScript** estricto.
-- **Commits:** `tipo(ámbito): descripción` → `feat(health): add pillbox tool`.
+## 6. Plan y equipo
 
-## 7. Definición de "terminado"
+Plan de 8 horas, checkpoints (h3 datos de punta a punta · h5 alerta crítica completa · h7
+congelar) y guion del demo: `docs/acta-vesta-care.md` §8–9.
 
-- [ ] Corre desde un clon limpio con `./scripts/dev.sh`
-- [ ] Respeta `02-DATA-CONTRACTS.md` al pie de la letra
-- [ ] **Tiene al menos una tool registrada y probada desde el chat**
-- [ ] Cumple los mínimos de `08-ACCESSIBILITY.md`
-- [ ] Funciona sin red o degrada con un mensaje claro
-- [ ] No contiene el nombre del asistente escrito a mano
-- [ ] Los criterios de aceptación de su documento están marcados
+| Rol | Alcance |
+|---|---|
+| P1 · Back/Datos | Esquema, seed de Don Luis, simulador, ingesta, motor de reglas, alertas, Web Push, WhatsApp simulado |
+| P2 · Front PWA | Next + PWA, onboarding, catálogo de módulos, dashboard, pantalla de alerta, vista del contacto |
+| P3 · Mateo/IA | AI SDK, prompt, extracción de la ficha, tools, chat, voz, resumen diario |
 
-## 8. Cómo trabajar acá
+Equipo: Vicente Rodríguez · Baptiste Vial · Luis-Felipe Cáceres. **Roles sin asignar**
+(`docs/OPEN-ISSUES.md` #5).
 
-- **Timebox de 45 minutos.** Sin resultado visible en pantalla, se avisa y se busca otro camino.
-- **Mock antes que integración.** Cada módulo corre con datos sembrados.
-- **No instales nada pesado.** Sin Docker, sin Postgres, sin colas.
-- **Después de la congelación (ver `09-BUILD-PLAN.md`), solo arreglos que salven el demo.**
+## 7. Qué se reutiliza
+
+| Fuente | Qué sirve |
+|---|---|
+| `legacy/Mateo-main/` | Personalidad de Mateo, salida estructurada, reporte de conversación como base del resumen diario, captura de voz en el navegador. Mapa en `legacy/README.md` |
+| `docs/archive/v3/` | Restricciones de PWA (notificaciones, iOS, HTTPS) e ideas extra. Resumen en `docs/OPEN-ISSUES.md` §3–4 |
+| `legacy/vesta-v3/` | Tokens de accesibilidad (`web/src/theme.ts`), prompt con la personalidad, script de túnel HTTPS |
+
+> **No borres el código viejo.** Lo descartado se mueve a `legacy/` o `docs/archive/`.
+
+## 8. Definición de "terminado"
+
+- [ ] Usa solo tablas, columnas y funciones de `src/types/supabase.ts`
+- [ ] Respeta RLS: funciona con la clave anónima y el usuario autenticado, no con la de servicio
+- [ ] Cumple el checklist de `docs/ACCESSIBILITY.md` §8
+- [ ] Lo simulado se ve como simulado
+- [ ] Sin secretos en el código
+- [ ] Sirve al recorrido del demo (acta §9). Si no, espera hasta después de h7

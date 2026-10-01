@@ -1,8 +1,12 @@
-# 08 · Accesibilidad y diseño para personas mayores
+# Accesibilidad y diseño para personas mayores
 
 > **Este documento es vinculante desde el primer componente.** Texto chico, contraste bajo o un
 > botón de 32 px son **bugs**, no detalles de pulido. En este producto, la accesibilidad no es
 > una capa: es la función principal.
+>
+> Viene de la spec v3 y no depende del stack: se adoptó para el plan Supabase porque concreta lo
+> que pide el acta, "accesible pero no infantilizada". Si una guía genérica (Apple HIG, Material)
+> pide mínimos más bajos, gana este documento.
 
 ## 1. A quién le estamos diseñando
 
@@ -44,7 +48,7 @@ tamaño base en `html`, y **nunca** poner `maximum-scale=1` o `user-scalable=no`
 Bloquear el zoom en una app para personas mayores es de los peores errores posibles.
 
 ```ts
-// web/src/theme.ts
+// Listo para copiar: legacy/vesta-v3/web/src/theme.ts
 export const escalas = {
   normal:     { base: 20, titulo: 28, grande: 34, boton: 22 },
   grande:     { base: 24, titulo: 34, grande: 42, boton: 26 },

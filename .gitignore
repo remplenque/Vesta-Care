@@ -1,24 +1,29 @@
-# Secrets — everything goes through .env (AGENTS.md §5.8)
+# Secrets — everything goes through .env / .env.local (AGENTS.md §3.5)
 .env
 .env.*
 !.env.example
 
-# Python (server/)
+# Next.js / Node
+node_modules/
+.next/
+/out/
+/build/
+*.tsbuildinfo
+next-env.d.ts
+.vercel/
+
+# Supabase CLI local state (migrations and seed DO get committed)
+supabase/.temp/
+supabase/.branches/
+
+# Python (legacy/)
 __pycache__/
 *.py[cod]
 .venv/
-venv/
-.pytest_cache/
 
-# SQLite database, rebuilt by server/seed.py
+# Local databases
 *.db
 *.db-journal
-
-# Node / Vite (web/)
-node_modules/
-web/dist/
-web/dev-dist/
-*.local
 
 # Editors / OS
 /.vscode/*
