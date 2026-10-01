@@ -5,7 +5,8 @@ import { ScreenSkeleton, useCare } from "@/components/CareProvider";
 import { Button, Icon, ProgressBar, SimulatedNote, Toast } from "@/components/ui";
 import { medLabel, todaySlots, type DoseSlot } from "@/lib/pillbox";
 import { getSupabase } from "@/lib/supabase/client";
-import { formatTime } from "@/lib/time";
+import { firstName, formatTime } from "@/lib/time";
+import { doseMessage, notifyCaregivers } from "@/lib/notify";
 
 type Row = { time: string; slots: DoseSlot[] };
 
@@ -54,6 +55,8 @@ export default function Pillbox() {
     if (error || !id) return;
     setToast({ text: `${slot.medication.name} marcada como tomada`, readingId: id });
     refresh();
+    // Caregivers hear about it on WhatsApp (simulated feed + real to the enabled numbers)
+    void notifyCaregivers(supabase, userId, data?.contacts ?? [], doseMessage(firstName(data?.profile?.full_name), medLabel(slot.medication), slot.time));
   }
 
   async function undo() {

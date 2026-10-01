@@ -12,16 +12,20 @@ import { normalize } from "./safety";
 //                     "Deshacer". The other two still wait for "sí".
 //   dose_not_taken  → removes today's dose_taken record for that dose (same as its "Deshacer")
 //   add_medication  → new row in medications (dose "50 mg · 1 pastilla", schedule.times)
+//   doctor_visit    → tells the caregivers on WhatsApp that the person went to the doctor today
+//                     (a message to other people about their life: always asks first)
 
 export type MateoAction =
   | { type: "dose_taken"; ref: string; label: string }
   | { type: "dose_not_taken"; ref: string; label: string }
-  | { type: "add_medication"; name: string; dose: string | null; times: string[]; label: string };
+  | { type: "add_medication"; name: string; dose: string | null; times: string[]; label: string }
+  | { type: "doctor_visit"; note: string | null; label: string };
 
 /** Loose shape the model returns (flat, nullable fields: easier for structured output) */
 export type RawAction = {
-  type: "dose_taken" | "dose_not_taken" | "add_medication";
+  type: "dose_taken" | "dose_not_taken" | "add_medication" | "doctor_visit";
   ref: string | null;
+  note?: string | null;
   name: string | null;
   strength: string | null;
   quantity: number | null;
@@ -52,6 +56,12 @@ export function validateActions(raw: RawAction[], data: CareData | null, tz = DE
         ref: a.ref!,
         label: `${a.type === "dose_taken" ? "Anotar como tomada" : "Quitar la marca de tomada"}: ${medLabel(slot.medication)} de las ${slot.time}`,
       });
+    } else if (a.type === "doctor_visit") {
+      const who = data.contacts.filter((c) => c.phone).map((c) => c.name.split(/\s+/)[0]);
+      if (!who.length || out.some((o) => o.type === "doctor_visit")) continue;
+      const note = (a.note ?? "").replace(/\s+/g, " ").trim().slice(0, 80) || null;
+      const names = who.length > 1 ? `${who.slice(0, -1).join(", ")} y ${who.at(-1)}` : who[0];
+      out.push({ type: "doctor_visit", note, label: `Avisarle a ${names} que fue al médico${note ? ` (${note})` : ""}` });
     } else if (a.type === "add_medication") {
       const name = (a.name ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
       if (name.length < 2) continue;

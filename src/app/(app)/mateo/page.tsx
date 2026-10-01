@@ -12,6 +12,7 @@ import type { MateoAction } from "@/lib/mateo/actions";
 import { PERSONAS, type Persona } from "@/lib/mateo/prompt";
 import { medLabel, todaySlots } from "@/lib/pillbox";
 import { answerOf } from "@/lib/yesno";
+import { doseMessage, notifyCaregivers, visitMessage } from "@/lib/notify";
 import { getSupabase } from "@/lib/supabase/client";
 import { firstName } from "@/lib/time";
 import { useAnnounceListening, useTalkRequest } from "@/hooks/useTalk";
@@ -95,6 +96,11 @@ function Chat() {
           if (!error) done.push(`agregué ${[a.name, a.dose].filter(Boolean).join(" ")}`);
           continue;
         }
+        if (a.type === "doctor_visit") {
+          await notifyCaregivers(supabase, userId, data?.contacts ?? [], visitMessage(name, a.note));
+          done.push(`le avisé a ${(data?.contacts ?? []).filter((c) => c.phone).map((c) => firstName(c.name)).join(" y ")}`);
+          continue;
+        }
         const slot = slots.find((x) => `${x.medication.id}|${x.time}` === a.ref);
         if (!slot) continue;
         if (a.type === "dose_taken" && slot.status !== "taken") {
@@ -108,7 +114,11 @@ function Chat() {
             p_metadata: { medication_id: slot.medication.id, scheduled_for: slot.at.toISOString(), via: "mateo" },
           });
           if (!error) done.push(`anoté ${slot.medication.name} de las ${slot.time} como tomada`);
-          if (!error && readingId) marked.push({ label: `${medLabel(slot.medication)} de las ${slot.time}`, readingId });
+          if (!error && readingId) {
+            marked.push({ label: `${medLabel(slot.medication)} de las ${slot.time}`, readingId });
+            // The caregivers hear about it on WhatsApp (simulated feed + real to enabled numbers)
+            void notifyCaregivers(supabase, userId, data?.contacts ?? [], doseMessage(name, medLabel(slot.medication), slot.time));
+          }
         } else if (a.type === "dose_not_taken" && slot.takenReadingId) {
           const { error } = await supabase.from("readings").delete().eq("id", slot.takenReadingId);
           if (!error) done.push(`quité la marca de ${slot.medication.name} de las ${slot.time}`);

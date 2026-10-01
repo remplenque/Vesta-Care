@@ -37,8 +37,9 @@ const schema = z.object({
   suggestions: z.array(z.string()),
   actions: z.array(
     z.object({
-      type: z.enum(["dose_taken", "dose_not_taken", "add_medication"]),
+      type: z.enum(["dose_taken", "dose_not_taken", "add_medication", "doctor_visit"]),
       ref: z.string().nullable(),
+      note: z.string().nullable(),
       name: z.string().nullable(),
       strength: z.string().nullable(),
       quantity: z.number().nullable(),
@@ -128,7 +129,7 @@ export async function POST(request: Request) {
         return Response.json({ reply: `Ya estaba anotado${name ? `, ${name}` : ""}. Bien hecho.`, suggestions: START_SUGGESTIONS, actions: [], fallback: false });
       }
       const actions = dose
-        ? validateActions([{ type: "dose_taken", ref: dose.ref, name: null, strength: null, quantity: null, times: null }], data, data.profile?.timezone ?? undefined)
+        ? validateActions([{ type: "dose_taken", ref: dose.ref, note: null, name: null, strength: null, quantity: null, times: null }], data, data.profile?.timezone ?? undefined)
         : [];
       if (actions.length) return Response.json({ reply: "Anotado.", suggestions: START_SUGGESTIONS, actions, fallback: false });
     } catch (err) {

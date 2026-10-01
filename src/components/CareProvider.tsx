@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { loadCareData, type Alert, type CareData } from "@/lib/data";
 import { getSupabase } from "@/lib/supabase/client";
 import { DEFAULT_TZ } from "@/lib/time";
+import { relayAlert } from "@/lib/notify";
 
 type CareContext = {
   userId: string;
@@ -73,6 +74,8 @@ export function CareProvider({ children, followCriticalAlerts = true }: { childr
         scheduleRefresh();
         const alert = payload.new as Alert | undefined;
         if (followCriticalAlerts && payload.eventType === "INSERT" && alert?.level === "critical") openAlert(alert.id);
+        // The rules engine already wrote the WhatsApp messages; deliver them for real (if enabled)
+        if (payload.eventType === "INSERT" && alert?.level === "critical") relayAlert(alert.id);
       })
       .subscribe();
 
