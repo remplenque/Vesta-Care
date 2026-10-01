@@ -38,6 +38,7 @@ export function useGuide(persona: Persona, onAnswer: (text: string) => void) {
   const voice = useCompanionVoice();
   const wantsListen = useRef(false);
   const wasSpeaking = useRef(false);
+  const listenTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const heard = useCallback((text: string) => {
     setLog((l) => [...l, { from: "person", text }]);
@@ -62,18 +63,24 @@ export function useGuide(persona: Persona, onAnswer: (text: string) => void) {
     [persona, voice, voiceMode],
   );
 
-  // Hands-free: when the companion finishes speaking, start listening
+  // Hands-free: when the companion finishes speaking, start listening. A short pause first, so the
+  // mic doesn't catch the tail of the companion's own voice coming out of the speaker.
+  const { start: startListening, listening } = speech;
   useEffect(() => {
-    if (wasSpeaking.current && !voice.speaking && wantsListen.current && voiceMode && !speech.listening) {
+    if (wasSpeaking.current && !voice.speaking && wantsListen.current && voiceMode && !listening) {
       wantsListen.current = false;
-      speech.start();
+      clearTimeout(listenTimer.current);
+      listenTimer.current = setTimeout(startListening, 700);
     }
     wasSpeaking.current = voice.speaking;
-  }, [speech, voice.speaking, voiceMode]);
+  }, [listening, startListening, voice.speaking, voiceMode]);
+
+  useEffect(() => () => clearTimeout(listenTimer.current), []);
 
   /** Stop everything (before navigating, or when the person taps a button instead) */
   const quiet = useCallback(() => {
     wantsListen.current = false;
+    clearTimeout(listenTimer.current);
     voice.stop();
     if (speech.listening) speech.stop();
   }, [speech, voice]);

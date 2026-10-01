@@ -30,7 +30,7 @@ export function GuideConversation({ guide, persona, thinking }: { guide: Guide; 
       <div className="flex flex-col gap-3">
         <CompanionPrompt persona={persona} state={state} line={line} speaking={voice.speaking} listening={speech.listening} onRepeat={guide.repeat} />
         <p role="status" className={`min-h-7 text-center text-body font-bold ${speech.listening ? "text-crit" : "text-ink-muted"}`}>
-          {speech.listening ? (speech.interim ? `"${speech.interim}…"` : "Le escucho…") : thinking ? "Un momento…" : voice.speaking ? `${persona} está hablando` : ""}
+          {speech.listening ? (speech.interim ? `"${speech.interim}…"` : "Le escucho. Tómese su tiempo…") : thinking ? "Un momento…" : voice.speaking ? `${persona} está hablando` : ""}
         </p>
       </div>
     );
