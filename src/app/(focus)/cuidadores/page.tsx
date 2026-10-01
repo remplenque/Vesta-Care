@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useCare } from "@/components/CareProvider";
 import { savedPersona } from "@/components/CompanionPrompt";
-import { GuideConversation, SwitchToTyping } from "@/components/GuideConversation";
+import { GuideConversation, SwitchToTyping, TalkFooter } from "@/components/GuideConversation";
 import { Brand, Button, Icon } from "@/components/ui";
 import { useGuide } from "@/hooks/useGuide";
 import type { Persona } from "@/lib/mateo/prompt";
@@ -174,11 +174,10 @@ function Guide() {
     e.currentTarget.reset();
   }
 
-  const { speech } = guide;
   const field = "min-h-16 w-full min-w-0 flex-1 bg-transparent px-4 text-body-lg focus:outline-none";
 
   return (
-    <div className="flex flex-1 flex-col gap-4 px-6 pt-5 pb-6">
+    <div className={`flex flex-1 flex-col gap-4 px-6 pt-5 ${guide.mode === "voz" ? "pb-0" : "pb-6"}`}>
       <div className="flex items-center justify-between">
         <Brand size="sm" />
         <button type="button" onClick={finish} className="min-h-14 cursor-pointer px-2 text-body font-bold text-primary underline underline-offset-4">
@@ -223,11 +222,6 @@ function Guide() {
       )}
 
       <div className="mt-auto flex flex-col gap-4">
-        {guide.mode === "voz" && (
-          <Button variant={speech.listening ? "danger" : "primary"} icon={speech.listening ? "stop" : "mic"} iconFill onClick={guide.toggleListen}>
-            {speech.listening ? "Terminar de hablar" : "Tocar para hablar"}
-          </Button>
-        )}
         {step === "ask" && (
           <>
             <Button variant={guide.mode === "voz" ? "secondary" : "primary"} icon="person_add" onClick={() => tap("Sí, agregar a alguien", () => go("phone"))}>
@@ -254,6 +248,7 @@ function Guide() {
         )}
         <SwitchToTyping guide={guide} />
       </div>
+      <TalkFooter guide={guide} />
     </div>
   );
 }

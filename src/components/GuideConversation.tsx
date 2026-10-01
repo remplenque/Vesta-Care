@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { CompanionPrompt } from "@/components/CompanionPrompt";
 import { MASCOT_HALO, MascotFace, type MascotState } from "@/components/Mascot";
-import { Icon } from "@/components/ui";
+import { Button, Icon } from "@/components/ui";
 import type { useGuide } from "@/hooks/useGuide";
 import type { Persona } from "@/lib/mateo/prompt";
 
@@ -80,5 +80,25 @@ export function SwitchToTyping({ guide }: { guide: Guide }) {
       <Icon name="keyboard" size="1.5rem" />
       Prefiero escribir
     </button>
+  );
+}
+
+/** Voice mode: the talk button lives in a footer pinned to the bottom of the screen, always in the
+ *  same place no matter how long the page gets. Chat mode: nothing. */
+export function TalkFooter({ guide, disabled }: { guide: Guide; disabled?: boolean }) {
+  if (guide.mode !== "voz") return null;
+  const { speech } = guide;
+  return (
+    <div className="sticky bottom-0 z-20 -mx-6 mt-2 border-t border-line bg-canvas px-6 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <Button
+        variant={speech.listening ? "danger" : "primary"}
+        icon={speech.listening ? "stop" : "mic"}
+        iconFill
+        onClick={guide.toggleListen}
+        disabled={disabled}
+      >
+        {speech.listening ? "Terminar de hablar" : "Tocar para hablar"}
+      </Button>
+    </div>
   );
 }
