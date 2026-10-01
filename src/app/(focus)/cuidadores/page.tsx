@@ -8,7 +8,7 @@ import { GuideConversation, SwitchToTyping, TalkFooter } from "@/components/Guid
 import { Brand, Button, Icon } from "@/components/ui";
 import { useGuide } from "@/hooks/useGuide";
 import type { Persona } from "@/lib/mateo/prompt";
-import { normalize } from "@/lib/mateo/safety";
+import { answerOf } from "@/lib/yesno";
 import { displayMobile, spokenMobile, toChileanMobile } from "@/lib/phone";
 import { getSupabase } from "@/lib/supabase/client";
 import { firstName } from "@/lib/time";
@@ -19,16 +19,6 @@ import { firstName } from "@/lib/time";
 // "Ahora no" is always visible: adding someone is never required.
 
 type Step = "ask" | "phone" | "name" | "confirm" | "saved";
-
-const YES = /\b(si|claro|bueno|ya|dale|por supuesto|obvio|quiero|agregar|otra)\b/;
-const NO = /\b(no|nada|despues|luego|listo|ninguno|ninguna)\b/;
-
-function answerOf(text: string): "yes" | "no" | null {
-  const t = normalize(text);
-  if (NO.test(t)) return "no"; // "no, gracias" / "sí, no sé" → no wins: never add someone by mistake
-  if (YES.test(t)) return "yes";
-  return null;
-}
 
 function cleanName(text: string) {
   return text

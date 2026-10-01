@@ -2,6 +2,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { loadCareData, type CareData } from "@/lib/data";
+import { validateActions } from "@/lib/mateo/actions";
 import { mateoContext } from "@/lib/mateo/context";
 import { instructions, PERSONAS, type Persona } from "@/lib/mateo/prompt";
 import {
@@ -16,7 +17,9 @@ import { getServerSupabase } from "@/lib/supabase/server";
 
 // Mateo's chat (acta §6). Contract used by the chat screen:
 //   POST { messages: { role: "user" | "assistant", content: string }[], persona?: "Mateo" | "Emilia" }
-//     → { reply: string, suggestions: string[], fallback: boolean }
+//     → { reply: string, suggestions: string[], actions: MateoAction[], fallback: boolean }
+// actions are only PROPOSALS (validated against the person's data): the chat asks for confirmation
+// and the app writes them with the user's session. See src/lib/mateo/actions.ts.
 // Order: fixed safety filters (no network) → LLM with a read-only summary of the day → output guards.
 // Mateo never diagnoses, never changes a dose and always points to a professional or 131 (AGENTS.md §3.6).
 // Provider by configuration (docs/OPEN-ISSUES.md #4): ANTHROPIC_API_KEY + ANTHROPIC_MODEL.
@@ -31,7 +34,18 @@ const MEDICATION_SUGGESTIONS = ["Gracias", "¿Cómo estoy hoy?", "Conversemos de
 const schema = z.object({
   reply: z.string(),
   suggestions: z.array(z.string()),
+  actions: z.array(
+    z.object({
+      type: z.enum(["dose_taken", "dose_not_taken", "add_medication"]),
+      ref: z.string().nullable(),
+      name: z.string().nullable(),
+      strength: z.string().nullable(),
+      quantity: z.number().nullable(),
+      times: z.array(z.string()).nullable(),
+    }),
+  ),
 });
+const CONFIRM_SUGGESTIONS = ["Sí, anótelo", "No"];
 
 async function loadForRequest(): Promise<{ data: CareData | null; signedIn: boolean }> {
   try {
@@ -79,13 +93,15 @@ export async function POST(request: Request) {
         ...messages,
       ],
       output: Output.object({ schema }),
-      maxOutputTokens: 500,
+      maxOutputTokens: 700,
       maxRetries: 0,
       timeout: 10_000, // voice: a long wait feels broken, so fail fast and fall back
     });
-    const reply = stripIngestionClaims(output.reply, name);
-    const suggestions = cleanSuggestions(output.suggestions);
-    return Response.json({ reply, suggestions: suggestions.length ? suggestions : START_SUGGESTIONS, fallback: false });
+    const actions = validateActions(output.actions, data, data?.profile?.timezone ?? undefined);
+    // "¿Se la tomó?" is fine to ask now: the app records a dose only when the person confirms it
+    const reply = actions.length ? output.reply : stripIngestionClaims(output.reply, name);
+    const suggestions = actions.length ? CONFIRM_SUGGESTIONS : cleanSuggestions(output.suggestions);
+    return Response.json({ reply, suggestions: suggestions.length ? suggestions : START_SUGGESTIONS, actions, fallback: false });
   } catch (err) {
     console.error("[mateo] LLM unavailable, using fallback:", err instanceof Error ? err.message : err);
     const reply = /qu[eé] hago|mareado|mareo|dolor|me siento mal/i.test(last)

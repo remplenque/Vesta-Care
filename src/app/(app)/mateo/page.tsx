@@ -8,7 +8,10 @@ import { Icon } from "@/components/ui";
 import { useCompanionVoice } from "@/hooks/useCompanionVoice";
 import { useSpeechInput } from "@/hooks/useSpeech";
 import type { ChatMessage } from "@/lib/data";
+import type { MateoAction } from "@/lib/mateo/actions";
 import { PERSONAS, type Persona } from "@/lib/mateo/prompt";
+import { todaySlots } from "@/lib/pillbox";
+import { answerOf } from "@/lib/yesno";
 import { getSupabase } from "@/lib/supabase/client";
 import { firstName } from "@/lib/time";
 
@@ -21,11 +24,11 @@ import { firstName } from "@/lib/time";
 const START = ["¿Cómo estoy hoy?", "¿Qué hago?", "Cuénteme algo bonito"];
 const PERSONA_KEY = "vesta.persona";
 
-type Api = { reply: string; suggestions?: string[]; fallback?: boolean };
+type Api = { reply: string; suggestions?: string[]; actions?: MateoAction[]; fallback?: boolean };
 
 function Chat() {
   const params = useSearchParams();
-  const { userId, data } = useCare();
+  const { userId, data, tz, refresh } = useCare();
   const supabase = getSupabase();
   const voice = useCompanionVoice();
 
@@ -47,6 +50,7 @@ function Chat() {
   const [keyboard, setKeyboard] = useState(false);
   const [draft, setDraft] = useState("");
   const [more, setMore] = useState(false);
+  const [pending, setPending] = useState<MateoAction[]>([]); // proposals waiting for "sí"
   const textBox = useRef<HTMLDivElement>(null);
   const autoStarted = useRef(false);
 
@@ -76,6 +80,43 @@ function Chat() {
     requestAnimationFrame(updateMore);
   }, [shown, said, updateMore]);
 
+  /** Writes confirmed proposals with the user's session, like the Pastillero does; returns what to say */
+  const runActions = useCallback(
+    async (list: MateoAction[]) => {
+      const slots = todaySlots(data?.medications ?? [], data?.readings ?? [], tz);
+      const done: string[] = [];
+      for (const a of list) {
+        if (a.type === "add_medication") {
+          const { error } = await supabase.from("medications").insert({ user_id: userId, name: a.name, dose: a.dose, schedule: { times: a.times } });
+          if (!error) done.push(`agregué ${[a.name, a.dose].filter(Boolean).join(" ")}`);
+          continue;
+        }
+        const slot = slots.find((x) => `${x.medication.id}|${x.time}` === a.ref);
+        if (!slot) continue;
+        if (a.type === "dose_taken" && slot.status !== "taken") {
+          const { error } = await supabase.rpc("ingest_reading", {
+            p_user_id: userId,
+            p_module_id: "pillbox",
+            p_metric: "dose_taken",
+            p_value: 1,
+            p_unit: "dosis",
+            p_source: "manual",
+            p_metadata: { medication_id: slot.medication.id, scheduled_for: slot.at.toISOString(), via: "mateo" },
+          });
+          if (!error) done.push(`anoté ${slot.medication.name} de las ${slot.time} como tomada`);
+        } else if (a.type === "dose_not_taken" && slot.takenReadingId) {
+          const { error } = await supabase.from("readings").delete().eq("id", slot.takenReadingId);
+          if (!error) done.push(`quité la marca de ${slot.medication.name} de las ${slot.time}`);
+        }
+      }
+      await refresh(); // Inicio, Pastillero and Mateo's next answer see the change
+      if (!done.length) return "No pude anotarlo. ¿Lo intentamos de nuevo?";
+      const text = done.length > 1 ? `${done.slice(0, -1).join(", ")} y ${done.at(-1)}` : done[0];
+      return `Listo${name ? `, ${name}` : ""}: ${text}.`;
+    },
+    [data, name, refresh, supabase, tz, userId],
+  );
+
   const send = useCallback(
     async (text: string, via: "voice" | "text") => {
       const content = text.trim();
@@ -92,7 +133,13 @@ function Chat() {
       const next = [...history, ...(userMsg ? [userMsg] : [])].slice(-12);
       setHistory(next);
       let answer: Api;
-      try {
+      // A pending proposal is answered here, without the model: "sí" writes it, "no" drops it
+      const yn = pending.length ? answerOf(content) : null;
+      if (yn) {
+        const list = pending;
+        setPending([]);
+        answer = yn === "yes" ? { reply: await runActions(list), suggestions: START } : { reply: "Bueno, no lo anoto.", suggestions: START };
+      } else try {
         const res = await fetch("/api/mateo", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -105,6 +152,7 @@ function Chat() {
       }
       setThinking(false);
       setReply(answer.reply);
+      if (!yn) setPending(answer.actions ?? []);
       setSuggestions(answer.suggestions?.length ? answer.suggestions : START);
       voice.speak(answer.reply, persona);
       const { data: botMsg } = await supabase
@@ -114,7 +162,7 @@ function Chat() {
         .single();
       if (botMsg) setHistory((h) => [...h, botMsg].slice(-12));
     },
-    [history, persona, supabase, thinking, userId, voice],
+    [history, pending, persona, runActions, supabase, thinking, userId, voice],
   );
 
   const speech = useSpeechInput((text) => send(text, "voice"));
@@ -233,7 +281,42 @@ function Chat() {
           </div>
         </section>
 
-        <div role="group" aria-label="Respuestas rápidas" className="flex shrink-0 flex-wrap justify-center gap-3 pb-3">
+        {pending.length > 0 && (
+          <section aria-label="Para anotar" className="flex w-full shrink-0 flex-col gap-3 rounded-card border-2 border-primary bg-primary-soft p-4">
+            <p className="flex items-center gap-2 text-body-lg font-extrabold text-primary">
+              <Icon name="edit_note" size="1.6rem" />
+              ¿Lo anoto?
+            </p>
+            <ul className="flex flex-col gap-1.5">
+              {pending.map((a) => (
+                <li key={a.label} className="text-body-lg">
+                  {a.label}
+                </li>
+              ))}
+            </ul>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={thinking}
+                onClick={() => send("Sí, anótelo", "text")}
+                className="flex min-h-14 flex-1 cursor-pointer items-center justify-center gap-2 rounded-btn bg-primary px-4 text-body-lg font-bold text-white disabled:opacity-45"
+              >
+                <Icon name="check" size="1.5rem" />
+                Sí, anótelo
+              </button>
+              <button
+                type="button"
+                disabled={thinking}
+                onClick={() => send("No", "text")}
+                className="flex min-h-14 cursor-pointer items-center justify-center rounded-btn border-2 border-line-strong bg-surface px-5 text-body-lg font-bold text-ink-muted disabled:opacity-45"
+              >
+                No
+              </button>
+            </div>
+          </section>
+        )}
+
+        <div role="group" aria-label="Respuestas rápidas" className={`flex shrink-0 flex-wrap justify-center gap-3 pb-3 ${pending.length ? "hidden" : ""}`}>
           {suggestions.map((s) => (
             <button
               key={s}

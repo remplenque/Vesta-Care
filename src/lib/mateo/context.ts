@@ -1,9 +1,12 @@
 import type { CareData } from "@/lib/data";
 import { moduleUi, sortModules, VITAL_MODULES } from "@/lib/modules";
-import { medLabel, todaySlots, type DoseStatus } from "@/lib/pillbox";
+import { medLabel, scheduleTimes, todaySlots, type DoseStatus } from "@/lib/pillbox";
 import type { Level } from "@/lib/rules";
 import { DEFAULT_TZ, firstName, formatTime, localDateKey } from "@/lib/time";
 import { thresholdsFor, vitalSeries } from "@/lib/vitals";
+
+/** Stable id of one dose of today: "<medication id>|08:00" */
+export const slotRef = (medicationId: string, time: string) => `${medicationId}|${time}`;
 
 // Read-only summary of the person's day for the model. Built in code, never the raw tables:
 // the model words things, it does not compute or decide (AGENTS.md §3.1).
@@ -39,13 +42,15 @@ export function mateoContext(data: CareData | null, now = new Date()) {
     };
   });
 
-  const remedios = enabled.has("pillbox")
-    ? todaySlots(data!.medications, data!.readings, tz, now).map((s) => ({
-        remedio: medLabel(s.medication),
-        hora: s.time,
-        estado: DOSE_WORDS[s.status],
-      }))
-    : [];
+  // "ref" lets the model point at one dose when the person says they took it (or didn't): the
+  // app confirms with the person and then writes it, never the model (AGENTS.md §3.8)
+  const remedios = todaySlots(data?.medications ?? [], data?.readings ?? [], tz, now).map((s) => ({
+    ref: slotRef(s.medication.id, s.time),
+    remedio: medLabel(s.medication),
+    hora: s.time,
+    estado: DOSE_WORDS[s.status],
+  }));
+  const guardados = (data?.medications ?? []).map((m) => ({ nombre: m.name, dosis: m.dose, horas: scheduleTimes(m) }));
 
   const alertas = (data?.alerts ?? [])
     .filter((a) => a.status === "open")
@@ -65,6 +70,7 @@ export function mateoContext(data: CareData | null, now = new Date()) {
     contacto: contact ? { nombre: firstName(contact.name), relacion: contact.relation } : null,
     lecturas_de_hoy: vitals,
     remedios_de_hoy: remedios,
+    remedios_guardados: guardados,
     alertas_abiertas: alertas,
     objetivos,
     nota: "Todos los dispositivos son simulados. Apoyo a la decisión, no diagnóstico.",

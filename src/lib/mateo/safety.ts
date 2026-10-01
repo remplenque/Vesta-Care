@@ -38,7 +38,7 @@ const MEDICAL_PHRASES = [
 // "se tomó", "se la ha tomado", "tomó su": we only know a dose was registered, not swallowed
 const INGESTION_CLAIM = /\b(se (la |lo )?(haya |ha )?(tomo|tomado)|tomo su)\b/;
 // Suggestions must never put medication words in the person's mouth ("Ya tomé el Losartán")
-const MEDICATION_WORDS = /\b(pastilla|remedio|medic|dosis|comprimido|tome|tomar|tomo)/;
+const MEDICATION_WORDS = /\b(pastilla|remedio|medic|dosis|comprimido|tome|tomar|tomo|salte|salto|saltar)/;
 
 export const isEmergency = (text: string) => EMERGENCY_PHRASES.some((p) => normalize(text).includes(p));
 export const isMedicationQuestion = (text: string) => MEDICAL_PHRASES.some((p) => normalize(text).includes(p));
@@ -54,10 +54,11 @@ export function medicationReply(name: string) {
   return `Esa es una muy buena pregunta para su médico${name ? `, ${name}` : ""}. No cambie nada por su cuenta. Si se siente mal, llame al 131.`;
 }
 
-/** Drops any sentence that claims or asks about ingestion; keeps the rest of the reply */
+/** Drops any sentence that CLAIMS ingestion ("Qué bien que se la tomó"); questions stay, since the
+ *  chat only records a dose when the person confirms it */
 export function stripIngestionClaims(reply: string, name: string) {
   const sentences = reply.trim().split(/(?<=[.!?])\s+/);
-  const kept = sentences.filter((s) => !INGESTION_CLAIM.test(normalize(s)));
+  const kept = sentences.filter((s) => s.trim().endsWith("?") || !INGESTION_CLAIM.test(normalize(s)));
   if (kept.length === sentences.length) return reply;
   return kept.join(" ") || `Aquí estoy para lo que necesite${name ? `, ${name}` : ""}.`;
 }
