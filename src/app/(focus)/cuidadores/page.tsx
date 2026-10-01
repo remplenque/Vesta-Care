@@ -3,11 +3,11 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useCare } from "@/components/CareProvider";
-import { MASCOT_HALO, MascotFace } from "@/components/Mascot";
+import { CompanionPrompt, savedPersona } from "@/components/CompanionPrompt";
 import { Brand, Button, Icon } from "@/components/ui";
 import { useCompanionVoice } from "@/hooks/useCompanionVoice";
 import { useSpeechInput } from "@/hooks/useSpeech";
-import { PERSONAS, type Persona } from "@/lib/mateo/prompt";
+import type { Persona } from "@/lib/mateo/prompt";
 import { normalize } from "@/lib/mateo/safety";
 import { displayMobile, spokenMobile, toChileanMobile } from "@/lib/phone";
 import { getSupabase } from "@/lib/supabase/client";
@@ -46,13 +46,7 @@ function Guide() {
   const { userId, data, refresh } = useCare();
   const supabase = getSupabase();
   const voice = useCompanionVoice();
-  const [persona] = useState<Persona>(() => {
-    try {
-      const saved = localStorage.getItem("vesta.persona");
-      if (PERSONAS.includes(saved as Persona)) return saved as Persona;
-    } catch {}
-    return "Mateo";
-  });
+  const [persona] = useState<Persona>(savedPersona);
   const [step, setStep] = useState<Step>("ask");
   const [phone, setPhone] = useState("");
   const [contactName, setContactName] = useState("");
@@ -102,10 +96,12 @@ function Guide() {
     say(prompts("ask"));
   }, [data, prompts, say]);
 
+  // Next guided step: the medical record (/mi-ficha), which then continues to the app
   const finish = useCallback(() => {
     voice.stop();
     const target = params.get("next");
-    router.replace(target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio");
+    const next = target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio";
+    router.replace(`/mi-ficha?next=${encodeURIComponent(next)}`);
   }, [params, router, voice]);
 
   function go(s: Step) {
@@ -180,24 +176,14 @@ function Guide() {
         </button>
       </div>
 
-      {/* Companion centered on top, what it says right below (like a speech bubble) */}
-      <div className="flex flex-col items-center gap-4">
-        <span className={`relative block aspect-square w-[min(170px,42vw,22dvh)] shrink-0 rounded-full ${MASCOT_HALO[persona]} ${speech.listening ? "listening" : ""}`}>
-          <MascotFace persona={persona} state={state} className="absolute inset-0 h-full w-full" />
-        </span>
-        <div className="relative flex w-full flex-col gap-3 rounded-card border border-line bg-surface p-5" aria-live="polite">
-          <span aria-hidden className="absolute -top-[9px] left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 border-t border-l border-line bg-surface" />
-          <p className="text-lead font-semibold">{line || "Un momento…"}</p>
-          <button
-            type="button"
-            onClick={() => (voice.speaking ? voice.stop() : voice.replay() || voice.speak(line, persona))}
-            className="inline-flex min-h-12 cursor-pointer items-center gap-1.5 self-start rounded-full bg-primary-soft px-3 text-body font-bold text-primary"
-          >
-            <Icon name={voice.speaking ? "stop" : "volume_up"} fill size="1.4rem" />
-            {voice.speaking ? "Detener" : "Repetir"}
-          </button>
-        </div>
-      </div>
+      <CompanionPrompt
+        persona={persona}
+        state={state}
+        line={line}
+        speaking={voice.speaking}
+        listening={speech.listening}
+        onRepeat={() => (voice.speaking ? voice.stop() : voice.replay() || voice.speak(line, persona))}
+      />
 
       {added.length > 0 && (
         <p className="flex items-center gap-2 text-body text-ok">
@@ -254,7 +240,7 @@ function Guide() {
         {step === "saved" && (
           <>
             <Button icon="person_add" onClick={restart}>Sí, agregar otra persona</Button>
-            <Button variant="muted" onClick={finish}>No, ir a la aplicación</Button>
+            <Button variant="muted" onClick={finish}>No, seguir</Button>
           </>
         )}
       </div>
