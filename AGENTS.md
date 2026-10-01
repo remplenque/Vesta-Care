@@ -30,8 +30,8 @@ Fuentes de verdad, en este orden:
 |---|---|
 | App | PWA con **Next.js** |
 | Datos | **Supabase**: Postgres, Auth, RLS, Realtime, Storage, funciones RPC |
-| Agente | Vercel AI SDK, proveedor intercambiable por configuración (por definir: `docs/OPEN-ISSUES.md` #4) |
-| Voz | Web Speech API (STT y TTS en el navegador) |
+| Agente | Vercel AI SDK; hoy Anthropic `claude-haiku-4-5` (`ANTHROPIC_MODEL`), intercambiable (`docs/OPEN-ISSUES.md` #4). Filtros fijos de seguridad antes y después del modelo (`src/lib/mateo/safety.ts`) |
+| Voz | STT: Web Speech API. TTS: ElevenLabs vía `/api/tts` si está configurado (clave solo en el servidor), si no la voz del navegador |
 | Hardware | Ninguno. Simulador + panel de escenarios |
 
 ```
@@ -88,15 +88,15 @@ Simulador ──► ingest_reading / ingest_bp ──► readings
 │   ├── types/supabase.ts      ← ★ generado desde Supabase (Baptiste)
 │   ├── proxy.ts               ← sesión de Supabase + rutas protegidas (Next 16: ex-middleware)
 │   ├── app/
-│   │   ├── bienvenida, ingresar, onboarding/{ficha,confirmar,contactos}   ← 01a–01d
+│   │   ├── bienvenida, ingresar (celular), onboarding/{ficha,confirmar,contactos}   ← 01a–01d
 │   │   ├── (app)/{inicio,pastillero,mateo,modulos}   ← 02, 04, 06, 07 (con barra inferior)
-│   │   ├── (focus)/{modulos/[id],alerta/[id]}       ← 03, 05, 05b (pantalla completa)
+│   │   ├── (focus)/{modulos/[id],alerta/[id],acompanante,como-seguir,cuidadores,mi-ficha,mis-remedios} ← 03, 05, 05b · tras entrar, guiado por voz o por chat (hooks/useGuide): acompañante → cómo seguir (voz/chat) → cuidadores → ficha/enfermedades → remedios
 │   │   ├── c/[token]          ← 08 vista del contacto (solo lectura, vía get_contact_view)
 │   │   ├── demo, demo/whatsapp ← 10 panel de escenarios · 09 WhatsApp simulado
-│   │   └── api/{mateo,ficha/extract,demo/reset}     ← stubs de Mateo (P3) + reset del demo
-│   ├── components/            ← ui.tsx (Button, StatusBadge…), ModuleCard, CareProvider
-│   ├── hooks/useSpeech.ts     ← voz (Web Speech API)
-│   └── lib/                   ← rules (espejo de evaluate_level), vitals, pillbox, time, copy
+│   │   └── api/{mateo,tts,auth/phone,conditions/extract,medications/extract,ficha/extract,demo/reset} ← Mateo (Claude) · voz ElevenLabs · login por celular (demo, sin SMS) · agentes que extraen enfermedades y remedios de lo dicho · stub de ficha (P3) · reset del demo
+│   ├── components/            ← ui.tsx (Button, StatusBadge…), ModuleCard, CareProvider, Mascot (caras de Mateo/Emilia)
+│   ├── hooks/                 ← useSpeech (micrófono), useCompanionVoice (ElevenLabs + caché para "Repetir")
+│   └── lib/                   ← rules (espejo de evaluate_level), vitals, pillbox, time, copy · mateo/ (prompt, contexto, filtros, tts)
 ├── legacy/                    ← solo lectura · legacy/README.md
 │   ├── Mateo-main/            ← agente Mateo original (Python, 2025)
 │   └── vesta-v3/              ← scaffold de la v3 descartada
@@ -106,9 +106,10 @@ Simulador ──► ingest_reading / ingest_bp ──► readings
 La interfaz implementa el diseño de Claude Design "Vesta Care.dc.html" (tokens en
 `src/app/globals.css`). Si cambia la estructura, actualizar este árbol en el mismo commit.
 
-**Stubs para P3 (Mateo/IA):** `src/app/api/mateo/route.ts` (chat) y
-`src/app/api/ficha/extract/route.ts` (extracción de la ficha) devuelven respuestas fijas. Cada
-uno documenta el contrato que usa la pantalla: reemplazar el cuerpo, no la forma.
+**Mateo/IA:** `src/app/api/mateo/route.ts` ya responde con el LLM (contrato documentado en el
+archivo: `{ messages, persona? } → { reply, suggestions, fallback }`). Sigue como stub
+`src/app/api/ficha/extract/route.ts` (extracción de la ficha): reemplazar el cuerpo, no la forma.
+`/api/mateo` y `/api/tts` gastan créditos: en producción exigen sesión (proxy.ts deja `/api/` público).
 
 ## 5. Convenciones
 
