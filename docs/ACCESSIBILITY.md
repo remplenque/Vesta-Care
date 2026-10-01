@@ -7,6 +7,12 @@
 > Viene de la spec v3 y no depende del stack: se adoptó para el plan Supabase porque concreta lo
 > que pide el acta, "accesible pero no infantilizada". Si una guía genérica (Apple HIG, Material)
 > pide mínimos más bajos, gana este documento.
+>
+> **Skill `apple-design` (`.claude/skills/`):** úsalo para respuesta inmediata, springs
+> interrumpibles, `prefers-reduced-motion` y tipografía. **No** apliques sus barras translúcidas
+> con `backdrop-filter` ni sus bordes reemplazados por difuminados: rompen el contraste 7:1 y los
+> bordes visibles (§4). Tampoco gestos como único camino: todo arrastre o deslizamiento necesita
+> un botón equivalente (§6).
 
 ## 1. A quién le estamos diseñando
 
