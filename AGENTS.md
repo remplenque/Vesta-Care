@@ -61,8 +61,9 @@ Simulador ──► ingest_reading / ingest_bp ──► readings
    código de cliente ni con prefijo `NEXT_PUBLIC_`. Nada de secretos en el repo: todo por `.env`.
 6. **Esto no es un dispositivo médico.** Mateo no diagnostica, no modifica dosis y siempre deriva a
    un profesional o al **131**.
-7. **Todo lo simulado se declara.** Las lecturas llevan su `source`, y WhatsApp es un simulador:
-   **nunca se envía un mensaje real**.
+7. **Todo lo simulado se declara.** Las lecturas llevan su `source`. WhatsApp es **simulado por
+   defecto** (`outbound_messages` → `/demo/whatsapp`); el envío **real** es opcional
+   (`WHATSAPP_REAL=1`) y solo llega a los números de `WHATSAPP_REAL_TO` (`/api/whatsapp/send`).
 8. **Nada extraído por el LLM se usa sin confirmación.** Ficha y umbrales pasan por
    `medical_records.confirmed` / `user_modules.confirmed`.
 9. **Agregar un módulo = manifiesto (`modules.manifest`) + generador en el simulador.** El núcleo
