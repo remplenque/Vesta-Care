@@ -26,7 +26,7 @@ type Item = { id?: string; name: string; source: "ficha" | "manual" };
 
 const DONE = /^(no|nada|nada mas|ninguna|ninguno|no tengo|no tengo ninguna|no tengo nada|eso es todo|eso seria|listo|no gracias|no, gracias)[.! ]*$/;
 
-/** "tengo diabetes y presión alta, también artrosis" → ["Diabetes", "Presión alta", "Artrosis"] */
+/** Offline fallback when the extraction agent is unavailable: splits on "y", commas, "también"… */
 function splitConditions(text: string): string[] {
   return text
     .replace(/^(yo\s+)?(tengo|sufro de|padezco( de)?|me diagnosticaron|me dijeron que tengo|soy)\s+/i, "")
@@ -59,6 +59,7 @@ function Guide() {
   const [pct, setPct] = useState(0);
   const [demoReading, setDemoReading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const photo = useRef<HTMLInputElement>(null);
   const pdf = useRef<HTMLInputElement>(null);
   const textInput = useRef<HTMLInputElement>(null);
@@ -153,9 +154,25 @@ function Guide() {
     }
   }
 
-  function add(text: string) {
-    const fresh = splitConditions(text).filter((n) => !items.some((i) => sameName(i.name, n)));
-    if (!fresh.length) return say("Disculpe, no le alcancé a entender. ¿Me lo repite, por favor?");
+  // An agent (/api/conditions/extract) pulls only the condition names out of what was said:
+  // "tengo la presión alta y también me dio diabetes" → Presión alta, Diabetes
+  async function add(text: string) {
+    setExtracting(true);
+    let names: string[] = [];
+    try {
+      const res = await fetch("/api/conditions/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, known: items.map((i) => i.name) }),
+      });
+      const body = (await res.json()) as { conditions?: string[]; fallback?: boolean };
+      names = !res.ok || body.fallback ? splitConditions(text) : (body.conditions ?? []);
+    } catch {
+      names = splitConditions(text);
+    }
+    setExtracting(false);
+    const fresh = names.filter((n, idx) => !items.some((i) => sameName(i.name, n)) && names.findIndex((m) => sameName(m, n)) === idx);
+    if (!fresh.length) return say("Disculpe, no le alcancé a entender qué enfermedad es. ¿Me lo repite, por favor?");
     setItems((list) => [...list, ...fresh.map((n) => ({ name: n, source: "manual" as const }))]);
     say(`Anoté ${spokenList(fresh)}. ¿Tiene alguna otra? Si no, toque «Eso es todo».`);
   }
@@ -195,7 +212,7 @@ function Guide() {
     e.currentTarget.reset();
   }
 
-  const state = speech.listening ? "listening" : step === "reading" ? "thinking" : voice.speaking ? "speaking" : "idle";
+  const state = speech.listening ? "listening" : step === "reading" || extracting ? "thinking" : voice.speaking ? "speaking" : "idle";
 
   return (
     <div className="flex flex-1 flex-col gap-4 px-6 pt-5 pb-6">
@@ -247,6 +264,7 @@ function Guide() {
               ))}
             </ul>
           )}
+          {extracting && <p className="text-body font-bold text-ink-muted" aria-live="polite">Anotando…</p>}
           {demoReading && <SimulatedNote>Lectura de ficha de demostración: revise que esté bien</SimulatedNote>}
           <form onSubmit={onType} className="flex items-center gap-3 pt-1">
             <input
@@ -257,7 +275,7 @@ function Guide() {
               autoComplete="off"
               className="min-h-14 min-w-0 flex-1 rounded-btn border-2 border-line-strong bg-surface px-4 text-body-lg focus:border-primary"
             />
-            <button type="submit" className="flex min-h-14 cursor-pointer items-center gap-1.5 rounded-btn bg-primary px-4 text-body font-bold text-white">
+            <button type="submit" disabled={extracting} className="flex min-h-14 cursor-pointer items-center gap-1.5 rounded-btn bg-primary px-4 text-body font-bold text-white disabled:opacity-45">
               <Icon name="add" size="1.5rem" />
               Agregar
             </button>
@@ -279,7 +297,7 @@ function Guide() {
           </>
         )}
         {step === "list" && (
-          <Button icon="check" onClick={save} disabled={saving}>
+          <Button icon="check" onClick={save} disabled={saving || extracting}>
             {saving ? "Un momento…" : "Eso es todo"}
           </Button>
         )}
