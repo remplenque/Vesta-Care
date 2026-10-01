@@ -40,7 +40,7 @@ export default function Welcome() {
       </div>
 
       <div className="mt-auto flex flex-col gap-3 p-6">
-        <Button href="/onboarding/ficha">Comenzar</Button>
+        <Button href="/ingresar">Comenzar</Button>
         <Button href="/ingresar" variant="text">
           Ya tengo una cuenta
         </Button>

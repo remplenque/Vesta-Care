@@ -88,8 +88,8 @@ Simulador ──► ingest_reading / ingest_bp ──► readings
 │   ├── types/supabase.ts      ← ★ generado desde Supabase (Baptiste)
 │   ├── proxy.ts               ← sesión de Supabase + rutas protegidas (Next 16: ex-middleware)
 │   ├── app/
-│   │   ├── bienvenida, ingresar (celular), onboarding/{ficha,confirmar,contactos}   ← 01a–01d
-│   │   ├── (app)/{mateo,inicio,calendario,pastillero,modulos,modulos/[id]} ← 06 = inicio real (acompañante) · 02 resumen · calendario (semana/mes) · 04 · 07 configuración · 03. Arriba: barra de módulos (estado de un vistazo, se despliega con la lista + configuración). Abajo, siempre en este orden: pánico (rojo, con confirmación → módulo sos) · resumen · calendario · acompañante (botón redondo grande: micrófono en /mateo, su cara en el resto)
+│   │   ├── bienvenida, ingresar (celular), onboarding/{ficha,confirmar,contactos} ← 01a–01d · onboarding/* es el flujo antiguo: una cuenta nueva entra por el guiado de (focus) (/ → /acompanante)
+│   │   ├── (app)/{mateo,inicio,calendario,pastillero,modulos,modulos/[id]} ← 06 = inicio real (acompañante) · 02 resumen · calendario (semana/mes) · 04 · 07 configuración · 03. Arriba: barra de módulos (estado de un vistazo, se despliega con la lista + configuración; sin módulos, sugiere los que calzan con sus enfermedades y remedios y los activa con «Sí»). Abajo, siempre en este orden: pánico (rojo, con confirmación → módulo sos) · resumen · calendario · acompañante (botón redondo grande: micrófono en /mateo, su cara en el resto)
 │   │   ├── (focus)/{alerta/[id],acompanante,como-seguir,cuidadores,mi-ficha,mis-remedios} ← 05, 05b, sin barra · tras entrar, guiado por voz o por chat (hooks/useGuide): acompañante → cómo seguir (voz/chat) → cuidadores → ficha/enfermedades → remedios
 │   │   ├── c/[token]          ← 08 vista del contacto (solo lectura, vía get_contact_view)
 │   │   ├── demo, demo/whatsapp ← 10 panel de escenarios con 3 usuarios simulados · 09 WhatsApp simulado

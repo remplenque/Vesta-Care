@@ -1,3 +1,5 @@
+import { manifestOf, type Module } from "./data";
+import { sortModules } from "./modules";
 import type { Thresholds } from "./rules";
 
 // Shape of medical_records.extracted (same as reset_demo writes). Nothing here is used until the
@@ -49,4 +51,26 @@ export function parseTimes(text: string): string[] {
     .filter((t) => /^\d{1,2}:\d{2}$/.test(t))
     .map((t) => t.padStart(5, "0"))
     .sort();
+}
+
+const norm = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+
+/** Modules that fit what the person told us: each manifest lists the conditions it serves
+ *  ("hipertensión", "diabetes tipo 2"…) and the pillbox fits anyone with remedies. Only a
+ *  suggestion: nothing is activated until the person says yes (AGENTS.md §3.8) */
+export function modulesForProfile(conditions: string[], hasMedications: boolean, catalog: Module[]): string[] {
+  const said = conditions.map(norm);
+  const ids = catalog
+    .filter((m) => m.status === "active")
+    .filter((m) => {
+      if (m.id === "pillbox" && hasMedications) return true;
+      const served = (manifestOf(m)?.conditions ?? []).map((c) => norm(c).split(/\s+/)[0]).filter((w) => w.length >= 5);
+      return served.some((w) => said.some((c) => c.includes(w)));
+    })
+    .map((m) => m.id);
+  return sortModules(ids, (id) => id);
 }

@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { getServerSupabase } from "@/lib/supabase/server";
-import { HOME_PATH } from "@/lib/nav";
+import { GUIDED_START_PATH, HOME_PATH } from "@/lib/nav";
 
-// Entry point: welcome → onboarding (no confirmed modules yet) → home (the companion screen)
+// Entry point: welcome → guided first steps (companion, caregivers, ficha, remedies) for a new
+// account → home (the companion screen). Anything already entered means the person has started
 export default async function Root() {
   const supabase = await getServerSupabase();
   const {
@@ -10,11 +11,12 @@ export default async function Root() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/bienvenida");
 
-  const { count } = await supabase
-    .from("user_modules")
-    .select("module_id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("confirmed", true);
+  const counts = await Promise.all(
+    (["user_modules", "medications", "conditions", "emergency_contacts"] as const).map(async (table) => {
+      const { count } = await supabase.from(table).select("user_id", { count: "exact", head: true }).eq("user_id", user.id);
+      return count ?? 0;
+    }),
+  );
 
-  redirect(count ? HOME_PATH : "/onboarding/ficha");
+  redirect(counts.some((n) => n > 0) ? HOME_PATH : GUIDED_START_PATH);
 }
