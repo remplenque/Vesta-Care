@@ -1,1 +1,27 @@
+# Secrets — everything goes through .env (AGENTS.md §5.8)
 .env
+.env.*
+!.env.example
+
+# Python (server/)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# SQLite database, rebuilt by server/seed.py
+*.db
+*.db-journal
+
+# Node / Vite (web/)
+node_modules/
+web/dist/
+web/dev-dist/
+*.local
+
+# Editors / OS
+/.vscode/*
+!/.vscode/extensions.json
+.idea/
+.DS_Store

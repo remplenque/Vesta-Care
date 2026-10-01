@@ -1,0 +1,99 @@
+S C:\Users\Cristian\Desktop\proyecto> Set-executionPolicy -ExecutionPolicy Bypass -Scope Process
+PS C:\Users\Cristian\Desktop\proyecto> python -m venv envdemo
+PS C:\Users\Cristian\Desktop\proyecto> ls
+
+
+    Directorio: C:\Users\Cristian\Desktop\proyecto
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d-----        30-09-2025     22:40                envdemo
+
+
+PS C:\Users\Cristian\Desktop\proyecto> cd envdemo
+PS C:\Users\Cristian\Desktop\proyecto\envdemo> ls
+
+
+    Directorio: C:\Users\Cristian\Desktop\proyecto\envdemo
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d-----        30-09-2025     22:40                Include
+d-----        30-09-2025     22:40                Lib
+d-----        30-09-2025     22:40                Scripts
+-a----        30-09-2025     22:40             71 .gitignore
+-a----        30-09-2025     22:40            336 pyvenv.cfg
+
+
+PS C:\Users\Cristian\Desktop\proyecto\envdemo> cd scripts
+PS C:\Users\Cristian\Desktop\proyecto\envdemo\scripts> ./activate
+(envdemo) PS C:\Users\Cristian\Desktop\proyecto\envdemo\scripts> cd..
+(envdemo) PS C:\Users\Cristian\Desktop\proyecto\envdemo> cd..
+(envdemo) PS C:\Users\Cristian\Desktop\proyecto> Pip install Django==5.1 
+Collecting Django==5.1
+  Using cached Django-5.1-py3-none-any.whl.metadata (4.2 kB)
+Collecting asgiref<4,>=3.8.1 (from Django==5.1)
+  Using cached asgiref-3.9.2-py3-none-any.whl.metadata (9.3 kB)
+Collecting sqlparse>=0.3.1 (from Django==5.1)
+  Using cached sqlparse-0.5.3-py3-none-any.whl.metadata (3.9 kB)
+Collecting tzdata (from Django==5.1)
+  Using cached tzdata-2025.2-py2.py3-none-any.whl.metadata (1.4 kB)
+Using cached Django-5.1-py3-none-any.whl (8.2 MB)
+Using cached asgiref-3.9.2-py3-none-any.whl (23 kB)
+Using cached sqlparse-0.5.3-py3-none-any.whl (44 kB)
+Using cached tzdata-2025.2-py2.py3-none-any.whl (347 kB)
+Installing collected packages: tzdata, sqlparse, asgiref, Django
+Successfully installed Django-5.1 asgiref-3.9.2 sqlparse-0.5.3 tzdata-2025.2                                              
+
+[notice] A new release of pip is available: 25.1.1 -> 25.2
+[notice] To update, run: python.exe -m pip install --upgrade pip
+(envdemo) PS C:\Users\Cristian\Desktop\proyecto> python -m django --version
+5.1
+(envdemo) PS C:\Users\Cristian\Desktop\proyecto> django-admin startproject empresa  
+(envdemo) PS C:\Users\Cristian\Desktop\proyecto> cd empresa
+(envdemo) PS C:\Users\Cristian\Desktop\proyecto\empresa> python manage.py runserver
+Watching for file changes with StatReloader
+Performing system checks...
+
+System check identified no issues (0 silenced).
+
+You have 18 unapplied migration(s). Your project may not work properly until you apply the migrations for app(s): admin, auth, contenttypes, sessions.
+Run 'python manage.py migrate' to apply them.
+September 30, 2025 - 22:43:48
+Django version 5.1, using settings 'empresa.settings'
+Starting development server at http://127.0.0.1:8000/
+Quit the server with CTRL-BREAK.
+
+[30/Sep/2025 22:44:18] "GET / HTTP/1.1" 200 12068
+Not Found: /favicon.ico
+[30/Sep/2025 22:44:18] "GET /favicon.ico HTTP/1.1" 404 2209
+[30/Sep/2025 22:44:18] "GET / HTTP/1.1" 200 12068
+Not Found: /favicon.ico
+[30/Sep/2025 22:44:18] "GET /favicon.ico HTTP/1.1" 404 2209
+Not Found: /favicon.ico
+[30/Sep/2025 22:44:18] "GET /favicon.ico HTTP/1.1" 404 2209
+[30/Sep/2025 22:44:18] "GET /favicon.ico HTTP/1.1" 404 2209
+(envdemo) PS C:\Users\Cristian\Desktop\proyecto\empresa> ^C
+(envdemo) PS C:\Users\Cristian\Desktop\proyecto\empresa> ^C
+(envdemo) PS C:\Users\Cristian\Desktop\proyecto\empresa> python manage.py startapp personas
+(envdemo) PS C:\Users\Cristian\Desktop\proyecto\empresa> python manage.py startapp personas
+(envdemo) PS C:\Users\Cristian\Desktop\proyecto\empresa> ls
+
+
+
+    Directorio: C:\Users\Cristian\Desktop\proyecto\empresa
+    Directorio: C:\Users\Cristian\Desktop\proyecto\empresa
+
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d-----        30-09-2025     22:43                empresa
+d-----        30-09-2025     22:45                personas
+-a----        30-09-2025     22:43              0 db.sqlite3
+-a----        30-09-2025     22:43            685 manage.py
+
+
+(envdemo) PS C:\Users\Cristian\Desktop\proyecto\empresa>

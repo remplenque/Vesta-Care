@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Selección de Perfil</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Crimson+Text:wght@400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gradient-1: hsl(0, 0%, 100%);
+            --bg-gradient-2: hsl(40, 93%, 84%);
+            --bg-gradient-3: hsl(27, 75%, 76%);
+            --bg-gradient-4: hsl(27, 88%, 77%);
+            --primary-color: hsl(25, 70%, 60%);
+            --primary-hover: hsl(25, 70%, 55%);
+            --primary-shadow: hsla(25, 70%, 40%, 0.25);
+            --text-primary: hsl(25, 15%, 25%);
+            --text-light: hsl(40, 30%, 97%);
+        }
+        body {
+            margin: 0;
+            height: 100vh;
+            background: linear-gradient(-45deg, var(--bg-gradient-1), var(--bg-gradient-2), var(--bg-gradient-3), var(--bg-gradient-4));
+            background-size: 300% 300%;
+            animation: gradientFlow 25s ease-in-out infinite;
+            color: var(--text-primary);
+            font-family: 'Crimson Text', serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        @keyframes gradientFlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 3rem 4rem;
+            box-shadow: 0 8px 30px var(--primary-shadow);
+        }
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 2rem;
+            text-shadow: 2px 2px 4px var(--primary-shadow);
+        }
+        .profiles-container {
+            display: flex;
+            gap: 2rem;
+        }
+        .profile-card {
+            background: var(--primary-color);
+            color: var(--text-light);
+            border: 4px solid white;
+            border-radius: 15px;
+            padding: 2rem;
+            width: 200px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 30px var(--primary-shadow);
+        }
+        .profile-card:hover {
+            transform: translateY(-10px);
+            background: var(--primary-hover);
+            box-shadow: 0 12px 40px var(--primary-shadow);
+        }
+        .profile-card h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>¿Quién eres?</h1>
+        <div class="profiles-container">
+            <div class="profile-card" data-perfil="Juanito">
+                <h2>Juanito</h2>
+            </div>
+            <div class="profile-card" data-perfil="María">
+                <h2>María</h2>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const profileCards = document.querySelectorAll('.profile-card');
+            
+            profileCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    // 1. Obtenemos el nombre del perfil del atributo 'data-perfil'
+                    const profileName = card.getAttribute('data-perfil');
+                    
+                    // 2. Redirigimos a la página de chat, pasando el nombre
+                    //    como un parámetro en la URL
+                    //    (Asumiendo que tu chat está en la URL '/chat/')
+                    window.location.href = `/chat/?perfil=${profileName}`;
+                });
+            });
+        });
+    </script>
+</body>
+</html>

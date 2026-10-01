@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Conversaciones con Mateo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Crimson+Text:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        /* Cream and Orange color palette */
+        :root {
+            /* Core colors - Creamer background */
+            --bg-gradient-1: hsl(0, 0%, 100%);  /* Pure cream */
+            --bg-gradient-2: hsl(40, 93%, 84%);  /* Soft cream */
+            --bg-gradient-3: hsl(27, 75%, 76%);  /* Light cream */
+            --bg-gradient-4: hsl(27, 88%, 77%);  /* Warm cream */
+            
+            /* Interactive elements - More orange */
+            --primary-color: hsl(25, 70%, 60%);  /* Warm orange */
+            --primary-hover: hsl(25, 70%, 55%);  /* Darker orange */
+            --primary-shadow: hsla(25, 70%, 40%, 0.25);  /* Orange shadow */
+
+            /* Modern theme colors (initially hidden) */
+            --modern-bg-1: hsl(230, 60%, 98%);  /* Light blue-gray */
+            --modern-bg-2: hsl(250, 70%, 96%);  /* Soft purple */
+            --modern-bg-3: hsl(280, 60%, 94%);  /* Light lavender */
+            --modern-bg-4: hsl(300, 50%, 92%);  /* Pale pink */
+            
+            --modern-primary: hsl(250, 70%, 55%);  /* Vibrant purple */
+            --modern-hover: hsl(250, 70%, 50%);    /* Deeper purple */
+            --modern-shadow: hsla(250, 70%, 40%, 0.25);  /* Purple shadow */
+            --modern-accent: hsl(190, 80%, 50%);   /* Bright cyan */
+            
+            /* Text colors */
+            --text-primary: hsl(25, 15%, 25%);   /* Warm dark */
+            --text-light: hsl(40, 30%, 97%);     /* Cream text */
+            
+            /* States */
+            --listening-color: hsl(15, 80%, 65%); /* Bright coral */
+            --disabled-color: hsl(25, 20%, 80%);  /* Light warm gray */
+            --border-color: hsl(40, 30%, 97%);    /* Matching cream */
+            
+            /* Chat elements */
+            --accent-color: hsl(32, 45%, 60%);  /* Soft teal for assistant */
+            --accent-hover: hsl(44, 85%, 68%);  /* Darker teal */
+            --accent-shadow: hsla(190, 45%, 40%, 0.15); /* Teal shadow */
+            --bubble-shadow: hsla(25, 70%, 40%, 0.15); /* Subtle orange shadow */
+        }
+
+        @keyframes gradientFlow {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        /* Base styles */
+        body {
+            margin: 0;
+            height: 100vh;
+            background: linear-gradient(
+                -45deg,
+                var(--bg-gradient-1),
+                var(--bg-gradient-2),
+                var(--bg-gradient-3),
+                var(--bg-gradient-4)
+            );
+            background-size: 300% 300%;
+            animation: gradientFlow 25s ease-in-out infinite;
+            color: var(--text-color);
+            font-family: 'Crimson Text', serif;
+            font-size: 20px;
+            line-height: 1.8;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+        }
+
+        .background-glow {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(
+                circle at var(--mouse-x, center) var(--mouse-y, center), 
+                hsla(40, 30%, 98%, 0.2) 0%, 
+                hsla(40, 30%, 98%, 0) 60%
+            );
+            pointer-events: none;
+            z-index: -2;
+            transition: all 0.8s ease;
+        }
+
+        /* Original root variables preserved for reference */
+        :root {
+            --bg-primary: #ffffff;
+            --text-primary: #2d2d2d;
+            --text-secondary: #6e6e80;
+            --border-color: #ffffff;
+            --button-bg: #9b6928;
+            --button-hover: #85440e;
+            --button-shadow: rgba(161, 99, 41, 0.5);
+        }
+
+        .main-container {
+            height: 100vh;
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            transition: all 0.3s ease;
+            background: transparent;
+            width: 100%;
+            padding: 2rem;
+            gap: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            z-index: 2;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 2rem;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px var(--primary-shadow);
+            letter-spacing: 1px;
+            border-bottom: 3px solid var(--accent-color);
+            padding-bottom: 0.5rem;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+
+        body.modern-theme h1 {
+            color: var(--modern-primary);
+            text-shadow: 2px 2px 4px var(--modern-shadow);
+            border-bottom-color: var(--modern-accent);
+        }
+
+        /* Original floating particles styles */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            background: linear-gradient(135deg, 
+                rgba(255,255,255,0.8),
+                rgba(255,255,255,0.3)
+            );
+            border-radius: 50%;
+            pointer-events: none;
+            transition: transform 0.3s ease;
+            backdrop-filter: blur(2px);
+            box-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+
+        /* Alternative modern layout (kept for reference)
+        .particles {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+        */
+
+                /* Status text styles */
+        #status-text {
+            font-size: 1.5rem;
+            margin: 1rem auto;
+            color: var(--text-primary);
+            min-height: 2.5rem;
+            max-width: 100%;
+            line-height: 1.6;
+            position: relative;
+            z-index: 2;
+            text-align: center;
+        }
+
+        #status-text small {
+            display: block;
+            margin-top: 1rem;
+            font-size: 1rem;
+        }
+
+        /* Agent container and states */
+        #agente-container {
+            --agent-size: 300px;
+            width: var(--agent-size);
+            height: var(--agent-size);
+            margin: 18px auto;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            border: 4px solid var(--bg-gradient-1);
+            box-shadow: 0 8px 30px var(--primary-shadow);
+            color: var(--text-light);
+            position: relative;
+            z-index: 2;
+            
+            /* Centering content */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            
+            /* Interaction */
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.25s ease;
+        }
+
+        /* Agent states */
+        #agente-container.small {
+            --agent-size: 120px;
+            margin: 20px auto;
+            border-width: 3px;
+        }
+
+        #agente-container:hover {
+            transform: scale(1.03);
+            background-color: var(--primary-hover);
+            box-shadow: 0 12px 40px var(--primary-shadow);
+        }
+
+        #agente-container.listening {
+            background-color: var(--listening-color);
+            box-shadow: 0 8px 30px var(--primary-shadow);
+        }
+
+        #agente-container.disabled {
+            background-color: var(--disabled-color);
+            cursor: not-allowed;
+            animation: none;
+            transform: none;
+            box-shadow: 0 4px 15px var(--primary-shadow);
+        }
+
+        /* Sound wave effect */
+        .sound-wave {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: transparent;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .listening .sound-wave {
+            opacity: 1;
+        }
+
+        /* Sound wave ripple effect */
+        .sound-wave::before,
+        .sound-wave::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%) scale(0);
+        }
+
+        .sound-wave::before {
+            animation: soundWave 2s ease-out infinite;
+        }
+
+        .sound-wave::after {
+            animation: soundWave 2s ease-out infinite 0.5s;
+        }
+
+        /* Microphone icon styles */
+        .mic-icon {
+            --icon-size: 60px;
+            width: var(--icon-size);
+            height: var(--icon-size);
+            fill: var(--bg-primary);
+            transition: transform 0.15s ease;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        }
+
+        /* Icon states */
+        .mic-shape, 
+        .wave-shape {
+            transition: opacity 0.3s ease;
+            opacity: 1;
+        }
+
+        .wave-shape {
+            opacity: 0;
+        }
+
+        .listening .mic-shape {
+            opacity: 0;
+        }
+
+        .listening .wave-shape {
+            opacity: 1;
+        }
+
+        /* Wave visualization */
+        .wave {
+            transform-origin: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .listening .wave {
+            opacity: 0.8;
+        }
+
+        /* Wave animations with staggered delays */
+        .listening .wave1 { animation: waveAnim1 1.5s ease-in-out infinite; }
+        .listening .wave2 { animation: waveAnim2 1.5s ease-in-out infinite 0.2s; }
+        .listening .wave3 { animation: waveAnim3 1.5s ease-in-out infinite 0.4s; }
+        .listening .wave4 { animation: waveAnim2 1.5s ease-in-out infinite 0.6s; }
+        .listening .wave5 { animation: waveAnim1 1.5s ease-in-out infinite 0.8s; }
+
+        /* Loading animation */
+        .loading-dots {
+            display: none;
+        }
+
+        .loading-dots span {
+            animation: dots 1.5s infinite;
+            font-size: 2rem;
+            margin: 0 2px;
+        }
+
+        .loading-dots span:nth-child(2) { animation-delay: 0.5s; }
+        .loading-dots span:nth-child(3) { animation-delay: 1s; }
+
+        /* Animations */
+        @keyframes soundWave {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(2);
+                opacity: 0;
+            }
+        }
+
+        @keyframes waveAnim1 {
+            0%, 100% { transform: scaleY(0.5); opacity: 0.2; }
+            50% { transform: scaleY(2); opacity: 1; }
+        }
+
+        @keyframes waveAnim2 {
+            0%, 100% { transform: scaleY(1); opacity: 0.5; }
+            50% { transform: scaleY(3); opacity: 0.8; }
+        }
+
+        @keyframes waveAnim3 {
+            0%, 100% { transform: scaleY(2); opacity: 0.8; }
+            50% { transform: scaleY(4); opacity: 1; }
+        }
+
+        @keyframes intenseMicPulse {
+            0% { transform: scale(0.6); }
+            100% { transform: scale(1.4); }
+        }
+
+        @keyframes dots {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .listening .mic-icon {
+            animation: intenseMicPulse 0.5s ease-in-out alternate infinite;
+        }
+
+        /* Chat message styles */
+        .message-container {
+            --message-spacing: 20px;
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            margin: var(--message-spacing) 0;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            will-change: transform, opacity;
+        }
+
+        .message-container.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Message direction */
+        .message-container.user {
+            flex-direction: row;
+            margin-right: 15%;
+        }
+
+        .message-container.agent {
+            flex-direction: row-reverse;
+            margin-left: 15%;
+        }
+
+        /* Name bubbles */
+        .name-bubble {
+            --name-padding: 10px 16px;
+            padding: var(--name-padding);
+            border-radius: 18px;
+            margin: 0 12px;
+            font-family: 'Playfair Display', serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .name-bubble.user {
+            background: var(--primary-color);
+            color: var(--text-light);
+            border: 2px solid white;
+            box-shadow: 0 4px 12px var(--primary-shadow);
+            padding: 10px 16px;
+            font-size: 1rem;
+            letter-spacing: 0.02em;
+            transition: all 0.3s ease;
+        }
+
+        .name-bubble.agent {
+            background: var(--accent-color);
+            color: var(--text-light);
+            border: 2px solid white;
+            box-shadow: 0 4px 12px var(--accent-shadow);
+            transition: all 0.3s ease;
+        }
+
+        body.modern-theme .name-bubble.user {
+            background: var(--modern-primary);
+            box-shadow: 0 4px 12px var(--modern-shadow);
+        }
+
+        /* Speech bubbles */
+        .speech-bubble {
+            --bubble-padding: 25px;
+            position: relative;
+            max-width: 85%;
+            padding: var(--bubble-padding);
+            border-radius: 25px;
+            font-family: 'Crimson Text', serif;
+            font-size: 1.4rem;
+            line-height: 1.8;
+            background: var(--bg-gradient-1);
+            box-shadow: 0 4px 15px var(--bubble-shadow);
+        }
+
+        .speech-bubble.user {
+            background-color: var(--primary-color);
+            color: var(--text-light);
+            border: 3px solid white;
+            box-shadow: 0 6px 20px var(--primary-shadow);
+            font-size: 1.3rem;
+            padding: 22px;
+            letter-spacing: 0.02em;
+            transition: all 0.3s ease;
+        }
+
+        .speech-bubble.agent {
+            background: white;
+            border: 3px solid var(--accent-color);
+            color: var(--text-primary);
+            box-shadow: 0 4px 15px var(--accent-shadow);
+            transition: all 0.3s ease;
+        }
+
+        body.modern-theme .speech-bubble.user {
+            background-color: var(--modern-primary);
+            box-shadow: 0 6px 20px var(--modern-shadow);
+        }
+
+        body.modern-theme .speech-bubble.user::before {
+            border-color: transparent var(--modern-primary) transparent transparent;
+        }
+
+        /* Speech bubble arrows */
+        .speech-bubble::before {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            bottom: 20px;
+        }
+
+        .speech-bubble.user::before {
+            left: -18px;
+            border-width: 18px 18px 18px 0;
+            border-color: transparent var(--primary-color) transparent transparent;
+            filter: drop-shadow(-3px 0 1px white);
+        }
+
+        .speech-bubble.agent::before {
+            right: -15px;
+            border-width: 15px 0 15px 15px;
+            border-color: transparent transparent transparent white;
+            filter: drop-shadow(3px 0 1px var(--accent-color));
+        }
+
+                /* Conversation container */
+        #conversation-container {
+            --container-padding: 30px;
+            margin: 0;
+            width: 100%;
+            flex: 1;
+            padding: var(--container-padding);
+            overflow-y: auto;
+            position: relative;
+            z-index: 2;
+            
+            /* Scrollbar styling */
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-color) transparent;
+        }
+
+        /* Custom scrollbar styles */
+        #conversation-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #conversation-container::-webkit-scrollbar-thumb {
+            background-color: var(--accent-color);
+            border-radius: 3px;
+        }
+
+        #conversation-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        /* Accessibility and interaction */
+        button, 
+        a {
+            cursor: pointer;
+        }
+
+        .help-text {
+            color: var(--text-primary);
+            text-align: center;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        /* Theme toggle and send buttons */
+        .theme-toggle, .send-button {
+            background: var(--primary-color);
+            color: var(--text-light);
+            border: 2px solid var(--border-color);
+            border-radius: 2rem;
+            padding: 0.75rem 1.5rem;
+            font-family: 'Crimson Text', serif;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 5;
+            box-shadow: 0 4px 12px var(--primary-shadow);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .send-button {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            margin: 0;
+            opacity: 0;
+            transform: translateX(100px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background-color: var(--listening-color);
+            font-size: 1.4rem;
+            padding: 1rem 2rem;
+        }
+
+        .listening .send-button {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .theme-toggle:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px var(--primary-shadow);
+        }
+
+        .theme-toggle svg {
+            width: 1.2em;
+            height: 1.2em;
+            fill: currentColor;
+        }
+
+        /* Modern theme class */
+        body.modern-theme {
+            background: linear-gradient(
+                -45deg,
+                var(--modern-bg-1),
+                var(--modern-bg-2),
+                var(--modern-bg-3),
+                var(--modern-bg-4)
+            );
+        }
+
+        body.modern-theme .theme-toggle,
+        body.modern-theme #agente-container {
+            background: var(--modern-primary);
+            box-shadow: 0 4px 12px var(--modern-shadow);
+        }
+
+        body.modern-theme .theme-toggle:hover,
+        body.modern-theme #agente-container:hover {
+            background: var(--modern-hover);
+        }
+
+        body.modern-theme .speech-bubble.agent {
+            border-color: var(--modern-accent);
+        }
+
+        body.modern-theme .name-bubble.agent {
+            background: var(--modern-primary);
+        }
+
+        /* Chat section */
+        .chat-section {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        /* Interaction section */
+        .interaction-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            position: relative;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+
+        /* Responsive styles */
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr 300px;
+                padding: 1rem;
+                gap: 1rem;
+            }
+
+            .chat-section,
+            .interaction-section {
+                padding: 1.5rem;
+            }
+
+            body {
+                font-size: 18px;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+
+            .chat-section {
+                order: 2;
+                height: auto;
+                flex: 1;
+            }
+
+            .interaction-section {
+                order: 1;
+                padding: 1rem;
+            }
+
+            #agente-container {
+                --agent-size: 160px;
+            }
+
+            .mic-icon {
+                --icon-size: 40px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .main-container {
+                padding: 0.5rem;
+                gap: 0.5rem;
+            }
+
+            .chat-section,
+            .interaction-section {
+                padding: 1rem;
+                border-radius: 15px;
+            }
+
+            #agente-container {
+                --agent-size: 120px;
+            }
+
+            .mic-icon {
+                --icon-size: 30px;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .message-container {
+                margin: 0.5rem 0;
+            }
+
+            .speech-bubble {
+                padding: 1rem;
+                font-size: 1rem;
+            }
+
+            .name-bubble {
+                padding: 0.5rem 1rem;
+                font-size: 0.9rem;
+            }
+
+            #conversation-container {
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-glow"></div>
+    <div class="main-container">
+        <div class="chat-section">
+            <h1>Hola, Juanito</h1> <div id="conversation-container">
+                <div class="conversation-content"></div>
+            </div>
+        </div>
+
+        <div class="interaction-section">
+            <button class="theme-toggle">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                    <path d="M12 4c-4.41 0-8 3.59-8 8s3.59 8 8 8 8-3.59 8-8-3.59-8-8-8zm0 14.5c-3.59 0-6.5-2.91-6.5-6.5S8.41 5.5 12 5.5s6.5 2.91 6.5 6.5-2.91 6.5-6.5 6.5z"/>
+                </svg>
+                Cambiar Tema
+            </button>
+            <button class="send-button" style="display: none;">
+                Enviar
+            </button>
+            <div id="agente-container">
+                <div class="sound-wave"></div>
+                <svg class="mic-icon" viewBox="0 0 24 24">
+                <g class="mic-shape">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+                </g>
+                <g class="wave-shape">
+                    <path class="wave wave1" d="M8 12 H16" stroke="white" stroke-width="2" fill="none"/>
+                    <path class="wave wave2" d="M6 8 H18" stroke="white" stroke-width="2" fill="none"/>
+                    <path class="wave wave3" d="M4 4 H20" stroke="white" stroke-width="2" fill="none"/>
+                    <path class="wave wave4" d="M6 16 H18" stroke="white" stroke-width="2" fill="none"/>
+                    <path class="wave wave5" d="M4 20 H20" stroke="white" stroke-width="2" fill="none"/>
+                </g>
+            </svg>
+            <div class="loading-dots">
+                <span>.</span><span>.</span><span>.</span>
+            </div>
+        </div>
+
+        <p id="status-text">Presiona para comenzar</p>
+    </div>
+
+    <div class="particles"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+
+            let haIniciado = false;
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const profileName = urlParams.get('perfil') || 'Juanito';
+
+            document.querySelector('.chat-section h1').textContent = `Hola, ${profileName}`;
+            
+
+            // 1. URL de tu backend (agente Flask)
+            const AGENTE_URL = 'http://127.0.0.1:5000';
+
+            /**
+             * 2. Nueva función para decodificar y reproducir audio Base64
+             * @param {string | null} base64String El audio codificado o null
+             */
+            function reproducirAudioBase64(base64String) {
+                try {
+                    if (!base64String) {
+                        // Si no hay audio (ej. en un error),
+                        // al menos volver al estado IDLE
+                        if (currentState === States.SPEAKING) {
+                            updateState(States.IDLE);
+                        }
+                        return; // No hacer nada si no hay audio
+                    }
+                    
+                    const audioData = atob(base64String); // Decodificar Base64
+                    const bytes = new Uint8Array(audioData.length);
+                    for (let i = 0; i < audioData.length; i++) {
+                        bytes[i] = audioData.charCodeAt(i);
+                    }
+                    const audioBlob = new Blob([bytes.buffer], { type: 'audio/mpeg' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+                    audio.play();
+                    
+                    // Evento que se dispara cuando el audio TERMINA
+                    audio.onended = () => {
+                        URL.revokeObjectURL(audioUrl);
+                        // Cuando el agente termina de hablar, volvemos a IDLE
+                        if (currentState === States.SPEAKING) {
+                            updateState(States.IDLE);
+                        }
+                    };
+                } catch (e) {
+                    console.error("Error al decodificar o reproducir audio:", e);
+                    // Si el audio falla, al menos volver a IDLE
+                    if (currentState === States.SPEAKING) {
+                        updateState(States.IDLE);
+                    }
+                }
+            }
+
+            // Theme toggle functionality
+            const themeToggle = document.querySelector('.theme-toggle');
+            const body = document.body;
+            
+            themeToggle.addEventListener('click', () => {
+                body.classList.toggle('modern-theme');
+                const isModern = body.classList.contains('modern-theme');
+                themeToggle.innerHTML = `
+                    <svg viewBox="0 0 24 24">
+                        <path d="${isModern 
+                            ? 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z'
+                            : 'M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zm-2 5.79V18h-3.52L12 20.48 9.52 18H6v-3.52L3.52 12 6 9.52V6h3.52L12 3.52 14.48 6H18v3.52L20.48 12 18 14.48z'}" />
+                    </svg>
+                    ${isModern ? 'Tema Clásico' : 'Tema Moderno'}
+                `;
+            });
+
+            // Dynamic button sizing
+            const conversationContent = document.querySelector('.conversation-content');
+            
+            const observer = new MutationObserver((mutations) => {
+                if (conversationContent.children.length > 0 && !agenteContainer.classList.contains('small')) {
+                    agenteContainer.classList.add('small');
+                }
+            });
+            
+            observer.observe(conversationContent, { childList: true });
+            const agenteContainer = document.getElementById('agente-container');
+            const statusText = document.getElementById('status-text');
+            const micIcon = document.querySelector('.mic-icon');
+            const loadingDots = document.querySelector('.loading-dots');
+
+            // Interactive background effect
+            document.addEventListener('mousemove', (e) => {
+                const x = (e.clientX / window.innerWidth) * 100;
+                const y = (e.clientY / window.innerHeight) * 100;
+                document.body.style.setProperty('--mouse-x', x + '%');
+                document.body.style.setProperty('--mouse-y', y + '%');
+            });
+
+            // Create floating particles
+            const particlesContainer = document.querySelector('.particles');
+            const particleCount = 30;
+
+            for (let i = 0; i < particleCount; i++) {
+                createParticle();
+            }
+
+            function createParticle() {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                
+                // Larger random size between 5px and 15px
+                const size = Math.random() * 10 + 5;
+                particle.style.width = size + 'px';
+                particle.style.height = size + 'px';
+                
+                // Random position
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                
+                // Random animation duration between 15s and 30s
+                const duration = Math.random() * 15 + 15;
+                const delay = Math.random() * -30; // Random start position in animation
+                particle.style.animation = `float ${duration}s infinite linear ${delay}s`;
+                
+                // Random opacity
+                particle.style.opacity = Math.random() * 0.5 + 0.3;
+                
+                // Random scale variation during animation
+                const scale = Math.random() * 0.5 + 0.8;
+                particle.style.transform = `scale(${scale})`;
+                
+                particlesContainer.appendChild(particle);
+                
+                // Recreate particle when animation completes to maintain particle count
+                setTimeout(() => {
+                    particle.remove();
+                    createParticle();
+                }, duration * 1000);
+            }
+
+            // Add floating animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes float {
+                    0% {
+                        transform: translate(0, 0) rotate(0deg) scale(1);
+                    }
+                    25% {
+                        transform: translate(20px, 20px) rotate(90deg) scale(1.1);
+                    }
+                    50% {
+                        transform: translate(0, 40px) rotate(180deg) scale(1);
+                    }
+                    75% {
+                        transform: translate(-20px, 20px) rotate(270deg) scale(0.9);
+                    }
+                    100% {
+                        transform: translate(0, 0) rotate(360deg) scale(1);
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            const States = {
+                IDLE: 'idle',
+                LOADING: 'loading',
+                SPEAKING: 'speaking',
+                LISTENING: 'listening'
+            };
+
+            let currentState = States.IDLE;
+            let recognition = null;
+
+            // Try different Speech Recognition APIs
+            if ('webkitSpeechRecognition' in window) {
+                recognition = new webkitSpeechRecognition();
+            } else if ('SpeechRecognition' in window) {
+                recognition = new SpeechRecognition();
+            } else {
+                // Show browser compatibility message
+                updateState(States.IDLE);
+                statusText.innerHTML = `
+                    Tu navegador no soporta entrada por voz.<br>
+                    Por favor usa Google Chrome, Microsoft Edge, o Safari actualizado.<br>
+                    <small style="color: #666;">
+                        Si estás usando un navegador compatible, asegúrate de:
+                        <br>1. Permitir acceso al micrófono
+                        <br>2. Tener un micrófono conectado y funcionando
+                    </small>`;
+                agenteContainer.classList.add('disabled');
+                return;
+            }
+
+            // Configure recognition with senior-friendly settings
+            recognition.continuous = true; // CHANGED: Keep recognition running continuously
+            recognition.interimResults = true;
+            recognition.lang = 'es-ES';
+
+            // BULLETPROOF timing - absolute minimum 30 seconds, no exceptions
+            const ABSOLUTE_MIN_TIME = 30000; // 30 seconds ABSOLUTE minimum
+            const SILENCE_AFTER_MIN = 8000; // 8 seconds of silence AFTER minimum time
+            const MAX_SPEECH_TIME = 120000; // 2 minutes maximum
+            let recognitionStartTime = null;
+            let lastSpeechTime = null;
+            let minTimerTimeout = null; // Timer to track minimum period
+            let silenceTimeout = null; // Timer to track silence
+            let canStopRecognition = false; // Flag that controls if we can stop
+
+            // Setup audio visualization
+            let audioContext;
+            let analyser;
+            let microphone;
+            let animationFrame;
+
+            async function setupAudioVisualization() {
+                try {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 256;
+                    
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    microphone = audioContext.createMediaStreamSource(stream);
+                    microphone.connect(analyser);
+                    
+                    visualize();
+                } catch (error) {
+                    console.error('Error setting up audio visualization:', error);
+                }
+            }
+
+            function visualize() {
+                if (!analyser) return;
+
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                const micIcon = document.querySelector('.mic-icon');
+
+                function draw() {
+                    animationFrame = requestAnimationFrame(draw);
+                    analyser.getByteFrequencyData(dataArray);
+
+                    // Calculate average volume with more emphasis on higher frequencies
+                    const weightedSum = dataArray.reduce((acc, val, idx) => {
+                        // Give more weight to higher frequencies
+                        const weight = 1 + (idx / dataArray.length);
+                        return acc + (val * weight);
+                    }, 0);
+                    
+                    const average = weightedSum / (dataArray.length * 1.5); // Normalize
+                    const scale = Math.max(0.6, Math.min(2.0, 0.6 + (average / 128) * 1.4));
+                    
+                    if (currentState === States.LISTENING) {
+                        micIcon.style.transform = `scale(${scale})`;
+                        
+                        // Update wave animations based on volume
+                        const waves = document.querySelectorAll('.wave');
+                        waves.forEach((wave, idx) => {
+                            const waveScale = 0.8 + (average / 128) * (0.4 + idx * 0.2);
+                            wave.style.transform = `scale(${waveScale})`;
+                            wave.style.opacity = Math.min(1, 0.4 + (average / 256));
+                        });
+                    } else {
+                        micIcon.style.transform = '';
+                    }
+                }
+
+                draw();
+            }
+
+            // Test microphone access
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(function(stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    setupRecognition();
+                })
+                .catch(function(err) {
+                    updateState(States.IDLE);
+                    statusText.innerHTML = `
+                        No se puede acceder al micrófono.<br>
+                        <small style="color: #666;">
+                            Por favor:
+                            <br>1. Haz clic en el icono 🔒 en la barra de direcciones
+                            <br>2. Permite el acceso al micrófono
+                            <br>3. Recarga la página
+                        </small>`;
+                    agenteContainer.classList.add('disabled');
+                });
+
+            function setupRecognition() {
+                const conversationContainer = document.getElementById('conversation-container');
+                let currentSpeechBubble = null;
+                let fullTranscript = ''; // Accumulate all speech
+
+                recognition.onstart = () => {
+                    console.log('=== RECOGNITION STARTED - 30 SECOND PROTECTION ACTIVE ===');
+                    updateState(States.LISTENING);
+                    recognitionStartTime = Date.now();
+                    lastSpeechTime = Date.now();
+                    canStopRecognition = false;
+                    fullTranscript = '';
+                    
+                    // Clear any existing timers
+                    if (minTimerTimeout) clearTimeout(minTimerTimeout);
+                    if (silenceTimeout) clearTimeout(silenceTimeout);
+                    
+                    // Create message container
+                    const messageContainer = document.createElement('div');
+                    messageContainer.className = 'message-container user';
+
+                    const nameBubble = document.createElement('div');
+                    nameBubble.className = 'name-bubble user';
+                    nameBubble.textContent = 'Tú';
+
+                    currentSpeechBubble = document.createElement('div');
+                    currentSpeechBubble.className = 'speech-bubble user';
+                    currentSpeechBubble.textContent = '...';
+
+                    messageContainer.appendChild(nameBubble);
+                    messageContainer.appendChild(currentSpeechBubble);
+                    conversationContainer.appendChild(messageContainer);
+                    
+                    setTimeout(() => messageContainer.classList.add('visible'), 10);
+
+                    // ABSOLUTE MINIMUM TIME ENFORCER
+                    // This timer enables stopping only after 30 seconds
+                    minTimerTimeout = setTimeout(() => {
+                        canStopRecognition = true;
+                        console.log('=== 30 SECONDS PASSED - Now listening for natural end ===');
+                        statusText.textContent = 'Sigue hablando o haz una pausa para terminar';
+                        
+                        // Start monitoring for silence NOW
+                        checkForSilence();
+                    }, ABSOLUTE_MIN_TIME);
+
+                    // ABSOLUTE SAFETY LIMIT - stop after 2 minutes
+                    setTimeout(() => {
+                        console.log('=== MAXIMUM TIME REACHED - Forcing stop ===');
+                        stopAndProcess();
+                    }, MAX_SPEECH_TIME);
+                };
+
+                recognition.onend = () => {
+                    console.log('=== RECOGNITION ENDED ===');
+                    // Clear all timers
+                    if (minTimerTimeout) clearTimeout(minTimerTimeout);
+                    if (silenceTimeout) clearTimeout(silenceTimeout);
+                    
+                    // Only process if we haven't already and we have text
+                    if (currentState === States.LISTENING && fullTranscript.trim()) {
+                        processTranscript();
+                    } else if (currentState === States.LISTENING) {
+                        updateState(States.IDLE);
+                        statusText.textContent = 'No escuché nada. Presiona para intentar de nuevo';
+                    }
+                };
+
+                recognition.onresult = (event) => {
+                    const now = Date.now();
+                    lastSpeechTime = now;
+                    
+                    // Build the complete transcript from all results
+                    fullTranscript = Array.from(event.results)
+                        .map(result => result[0].transcript)
+                        .join(' ');
+                    
+                    if (currentSpeechBubble) {
+                        currentSpeechBubble.textContent = fullTranscript || '...';
+                    }
+
+                    // Log progress
+                    const elapsed = now - recognitionStartTime;
+                    const remaining = Math.max(0, ABSOLUTE_MIN_TIME - elapsed);
+                    
+                    if (!canStopRecognition) {
+                        console.log(`Speech detected. Min time remaining: ${Math.ceil(remaining/1000)}s`);
+                    } else {
+                        console.log(`Speech detected after min time. Resetting silence timer.`);
+                        // Reset silence timer since they're still talking
+                        checkForSilence();
+                    }
+                };
+
+                // Helper function to check for silence after minimum time
+                function checkForSilence() {
+                    // Clear existing silence timer
+                    if (silenceTimeout) {
+                        clearTimeout(silenceTimeout);
+                    }
+                    
+                    // Only set new timer if we can stop
+                    if (canStopRecognition) {
+                        silenceTimeout = setTimeout(() => {
+                            const timeSinceLastSpeech = Date.now() - lastSpeechTime;
+                            if (timeSinceLastSpeech >= SILENCE_AFTER_MIN) {
+                                console.log('=== SILENCE DETECTED - Stopping recognition ===');
+                                stopAndProcess();
+                            }
+                        }, SILENCE_AFTER_MIN);
+                    }
+                }
+
+                // Helper function to stop recognition and process
+                function stopAndProcess() {
+                    if (currentState === States.LISTENING) {
+                        recognition.stop(); // This will trigger onend
+                    }
+                }
+
+                // Helper function to process the transcript
+                function processTranscript() {
+                    if (!fullTranscript.trim()) {
+                        updateState(States.IDLE);
+                        statusText.textContent = 'No escuché nada. Presiona para intentar de nuevo';
+                        return;
+                    }
+                    
+                    updateState(States.LOADING);
+                    processWithPydanticAI(fullTranscript.trim());
+                }
+
+                // Simplified error handler
+                recognition.onerror = (event) => {
+                    console.error('Recognition error:', event.error);
+                    
+                    // Clear timers
+                    if (minTimerTimeout) clearTimeout(minTimerTimeout);
+                    if (silenceTimeout) clearTimeout(silenceTimeout);
+                    
+                    // Don't treat 'no-speech' as a hard error during minimum time
+                    if (event.error === 'no-speech' && !canStopRecognition) {
+                        console.log('No speech detected, but still within minimum time. Continuing...');
+                        return; // Let it continue
+                    }
+                    
+                    updateState(States.IDLE);
+                    statusText.textContent = 'Hubo un problema. Presiona para intentar de nuevo';
+                    
+                    if (currentSpeechBubble && !fullTranscript.trim()) {
+                        currentSpeechBubble.textContent = 'Error al escuchar...';
+                    }
+                };
+            }
+
+            const sendButton = document.querySelector('.send-button');
+
+            function updateState(newState) {
+                currentState = newState;
+                agenteContainer.classList.remove('listening', 'disabled', 'speaking');
+                micIcon.style.display = 'block';
+                loadingDots.style.display = 'none';
+                micIcon.style.transform = '';
+                
+                // Mostrar/ocultar botón de enviar según el estado
+                sendButton.style.display = (newState === States.LISTENING) ? 'block' : 'none';
+
+                switch (newState) {
+                    case States.IDLE:
+                        statusText.textContent = 'Presiona para comenzar';
+                        if (animationFrame) {
+                            cancelAnimationFrame(animationFrame);
+                            animationFrame = null;
+                        }
+                        break;
+                    case States.LOADING:
+                        statusText.textContent = 'Hmm, déjame pensar...';
+                        micIcon.style.display = 'none';
+                        loadingDots.style.display = 'block';
+                        agenteContainer.classList.add('disabled');
+                        if (animationFrame) {
+                            cancelAnimationFrame(animationFrame);
+                            animationFrame = null;
+                        }
+                        break;
+                    case States.SPEAKING:
+                        statusText.textContent = 'Mateo está hablando...';
+                        agenteContainer.classList.add('disabled', 'speaking'); // Deshabilitar click mientras habla
+                        if (animationFrame) {
+                            cancelAnimationFrame(animationFrame);
+                            animationFrame = null;
+                        }
+                        break;
+                    case States.LISTENING:
+                        statusText.textContent = 'Te escucho... Tómate tu tiempo (mínimo 30 segundos)';
+                        agenteContainer.classList.add('listening');
+                        setupAudioVisualization();
+                        break;
+                }
+            }
+
+            // Agent configuration
+            const agentConfig = {
+                name: 'Mateo', // <-- CAMBIADO
+                role: 'Acompañante Virtual'
+            };
+
+            // ======================================================
+            // --- INICIO DE MODIFICACIÓN ---
+            // ======================================================
+            /**
+             * 3. Función MODIFICADA
+             * Llama a la API real (/respond) en lugar de usar mockResponses
+             * @param {string} text El texto transcrito del usuario
+             */
+            async function processWithPydanticAI(text) {
+                // El estado ya está en LOADING gracias a 'recognition.onend'
+                console.log(`Enviando a /respond: ${text}`);
+                
+                try {
+                    const response = await fetch(`${AGENTE_URL}/respond`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            user_text: text
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        // Si la API devuelve un error (ej: 500), 'data' contendrá el texto de error
+                        throw new Error(data.text || "Error desconocido del servidor");
+                    }
+                    
+                    // Usamos tu función 'playResponse' para MOSTRAR el texto
+                    playResponse(data.text);
+                    
+                    // Usamos nuestra NUEVA función para REPRODUCIR el audio
+                    reproducirAudioBase64(data.audio_base64);
+
+                } catch (error) {
+                    console.error('Error al llamar a /respond:', error);
+                    // Muestra el error en la burbuja de chat
+                    const errorText = error.message || "Lo siento, hubo un error. ¿Podrías repetir eso?";
+                    playResponse(errorText);
+                    // Llamamos a la función de audio con 'null' para que 
+                    // simplemente cambie el estado a IDLE
+                    reproducirAudioBase64(null);
+                }
+            }
+
+
+
+            /**
+             * 4. Función MODIFICADA
+             * Muestra el texto del agente y maneja el estado
+             * @param {string} text El texto que dirá el agente
+             */
+            function playResponse(text) {
+                updateState(States.SPEAKING);
+                
+                // Calculate a natural reading time (roughly 100-150ms per word)
+                const words = text.split(' ').length;
+                const readingTime = Math.max(2000, words * 125);
+
+                // Create message container with bubbles
+                const conversationContainer = document.getElementById('conversation-container');
+                const messageContainer = document.createElement('div');
+                messageContainer.className = 'message-container agent';
+
+                // Create name bubble
+                const nameBubble = document.createElement('div');
+                nameBubble.className = 'name-bubble agent';
+                nameBubble.textContent = agentConfig.name;
+
+                // Create speech bubble
+                const responseBubble = document.createElement('div');
+                responseBubble.className = 'speech-bubble agent';
+
+                // Assemble the message
+                messageContainer.appendChild(nameBubble);
+                messageContainer.appendChild(responseBubble);
+                conversationContainer.appendChild(messageContainer);
+                
+                // Enhanced smooth scrolling with dynamic timing
+                const scrollOptions = {
+                    behavior: 'smooth',
+                    block: 'end',
+                    inline: 'nearest'
+                };
+                
+                // Add a small delay to ensure the message container is rendered
+                setTimeout(() => {
+                    messageContainer.scrollIntoView(scrollOptions);
+                    // Additional scroll for extra smoothness
+                    conversationContainer.scrollTo({
+                        top: conversationContainer.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }, 50);
+
+                // Add the text with a typing effect
+                let i = 0;
+                const typeText = () => {
+                    if (i < text.length) {
+                        responseBubble.textContent += text.charAt(i);
+                        i++;
+                        setTimeout(typeText, 30);
+                    } else {
+                        // After typing is complete, scroll to the bottom
+                        conversationContainer.scrollTop = conversationContainer.scrollHeight;
+                        
+                        // ======================================================
+                        // --- INICIO DE MODIFICACIÓN ---
+                        // ======================================================
+                        
+                        // ¡BORRADO! El 'setTimeout' que había aquí.
+                        // El estado ahora se cambia a IDLE cuando el audio
+                        // termina de reproducirse (en 'reproducirAudioBase64')
+                        
+                        // ======================================================
+                        // --- FIN DE MODIFICACIÓN ---
+                        // ======================================================
+                    }
+                };
+
+                setTimeout(() => {
+                    messageContainer.classList.add('visible');
+                    typeText();
+                }, 100);
+            }
+
+            // Event Listeners
+            agenteContainer.addEventListener('click', async () => { // <-- Hacer la función 'async'
+                console.log('Button clicked, current state:', currentState);
+                
+                if (currentState === States.IDLE) {
+                    
+                    if (!haIniciado) {
+                        // --- ESTA ES LA PRIMERA VEZ QUE SE HACE CLIC ---
+                        console.log("Primer clic. Llamando a /start...");
+                        updateState(States.LOADING); // Poner en modo 'pensando'
+                        haIniciado = true; // Marcar como iniciado
+                        
+                        try {
+                            const response = await fetch(`${AGENTE_URL}/start`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ profile_name: profileName }) // Enviamos el nombre del perfil
+                            });
+
+                            if (!response.ok) {
+                                const errorData = await response.json().catch(() => ({}));
+                                throw new Error(errorData.error || `Error del servidor: ${response.status}`);
+                            }
+
+                            const data = await response.json();
+                            playResponse(data.text); 
+                            reproducirAudioBase64(data.audio_base64);
+
+                        } catch (error) {
+                            console.error('Error al iniciar la conversación:', error);
+                            statusText.textContent = 'Error al conectar con el agente.';
+                            agenteContainer.classList.add('disabled');
+                            updateState(States.IDLE); // Volver a idle si falla
+                            haIniciado = false; // Permitir reintentar
+                        }
+                        
+                    } else {
+                        // --- YA INICIÓ, AHORA SOLO ESCUCHAR ---
+                        console.log('Starting recognition...');
+                        try {
+                            recognition.start();
+                            console.log('Recognition started successfully');
+                        } catch (error) {
+                            console.error('Error starting recognition:', error);
+                            updateState(States.IDLE);
+                            statusText.textContent = 'Hubo un error. Por favor, intenta de nuevo.';
+                        }
+                    }
+
+                } else if (currentState === States.LISTENING) {
+                    console.log('Stopping recognition manually...');
+                    recognition.stop();
+                } else {
+                    console.log('Button clicked but state is not IDLE (is ' + currentState + ')');
+                }
+            });
+            // Helper function for CSRF token (No es necesaria para llamar a Flask con CORS)
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+
+            // ======================================================
+            // --- INICIO DE MODIFICACIÓN ---
+            // ======================================================
+            /**
+             * 5. Función NUEVA
+             * Llama a /start al cargar la página para obtener el primer saludo
+             */
+            
+        });
+    </script>
+</body>
+</html>
