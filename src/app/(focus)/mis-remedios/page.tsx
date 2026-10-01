@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { savedPersona } from "@/components/CompanionPrompt";
-import { GuideConversation, SwitchToTyping } from "@/components/GuideConversation";
+import { GuideConversation, SwitchToTyping, TalkFooter } from "@/components/GuideConversation";
 import { useCare } from "@/components/CareProvider";
 import { Brand, Button, Icon, SimulatedNote } from "@/components/ui";
 import { useGuide } from "@/hooks/useGuide";
@@ -164,9 +164,9 @@ function Guide() {
     setForm({ name: "", amount: "", unit: "mg", quantity: null });
   }
 
+  // Removing is silent: nothing is read out loud
   function remove(m: Med) {
     setItems((list) => list.filter((x) => x !== m));
-    say(`Quité ${m.name}.`);
   }
 
   async function save() {
@@ -188,13 +188,12 @@ function Guide() {
   useEffect(() => {
     answerRef.current = (text) => (DONE.test(normalize(text).trim()) ? save() : addSpoken(text));
   });
-  const { speech } = guide;
   const field = "min-h-14 w-full min-w-0 rounded-btn border-2 border-line-strong bg-surface px-4 text-body-lg focus:border-primary";
   const chip = (on: boolean) =>
     `min-h-14 min-w-14 cursor-pointer rounded-full border-2 px-4 text-body-lg font-bold ${on ? "border-primary bg-primary text-white" : "border-line-strong bg-surface text-ink"}`;
 
   return (
-    <div className="flex flex-1 flex-col gap-4 px-6 pt-5 pb-6">
+    <div className={`flex flex-1 flex-col gap-4 px-6 pt-5 ${guide.mode === "voz" ? "pb-0" : "pb-6"}`}>
       <div className="flex items-center justify-between">
         <Brand size="sm" />
         <button type="button" onClick={finish} className="min-h-14 cursor-pointer px-2 text-body font-bold text-primary underline underline-offset-4">
@@ -294,11 +293,6 @@ function Guide() {
       )}
 
       <div className="mt-auto flex flex-col gap-4">
-        {guide.mode === "voz" && (
-          <Button variant={speech.listening ? "danger" : "secondary"} icon={speech.listening ? "stop" : "mic"} iconFill onClick={guide.toggleListen}>
-            {speech.listening ? "Terminar de hablar" : "Tocar para hablar"}
-          </Button>
-        )}
         <Button
           icon="check"
           onClick={() => {
@@ -312,6 +306,7 @@ function Guide() {
         </Button>
         <SwitchToTyping guide={guide} />
       </div>
+      <TalkFooter guide={guide} />
     </div>
   );
 }

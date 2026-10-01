@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { savedPersona } from "@/components/CompanionPrompt";
-import { GuideConversation, SwitchToTyping } from "@/components/GuideConversation";
+import { GuideConversation, SwitchToTyping, TalkFooter } from "@/components/GuideConversation";
 import { useCare } from "@/components/CareProvider";
 import { Brand, Button, Icon, ProgressBar, SimulatedNote } from "@/components/ui";
 import { useGuide } from "@/hooks/useGuide";
@@ -177,9 +177,9 @@ function Guide() {
     say(`Anoté ${spokenList(fresh)}. ¿Tiene alguna otra? Si no, toque «Eso es todo».`);
   }
 
+  // Removing is silent: no "Quité Parkinson" read out loud
   function remove(item: Item) {
     setItems((list) => list.filter((i) => i !== item));
-    say(`Quité ${item.name}.`);
   }
 
   async function save() {
@@ -226,10 +226,9 @@ function Guide() {
     e.currentTarget.reset();
   }
 
-  const { speech } = guide;
 
   return (
-    <div className="flex flex-1 flex-col gap-4 px-6 pt-5 pb-6">
+    <div className={`flex flex-1 flex-col gap-4 px-6 pt-5 ${guide.mode === "voz" ? "pb-0" : "pb-6"}`}>
       <div className="flex items-center justify-between">
         <Brand size="sm" />
         <button type="button" onClick={finish} className="min-h-14 cursor-pointer px-2 text-body font-bold text-primary underline underline-offset-4">
@@ -293,11 +292,6 @@ function Guide() {
       )}
 
       <div className="mt-auto flex flex-col gap-4">
-        {guide.mode === "voz" && step !== "reading" && (
-          <Button variant={speech.listening ? "danger" : "secondary"} icon={speech.listening ? "stop" : "mic"} iconFill onClick={guide.toggleListen}>
-            {speech.listening ? "Terminar de hablar" : "Tocar para hablar"}
-          </Button>
-        )}
         {step === "ask" && (
           <>
             <Button icon="photo_camera" onClick={() => tap("Sacar una foto", () => photo.current?.click())}>Sacar una foto</Button>
@@ -312,6 +306,7 @@ function Guide() {
         )}
         <SwitchToTyping guide={guide} />
       </div>
+      <TalkFooter guide={guide} disabled={step === "reading"} />
     </div>
   );
 }

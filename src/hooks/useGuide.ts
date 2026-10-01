@@ -36,8 +36,7 @@ export function useGuide(persona: Persona, onAnswer: (text: string) => void) {
   const [log, setLog] = useState<GuideMessage[]>([]);
   const [line, setLine] = useState("");
   const voice = useCompanionVoice();
-  const wantsListen = useRef(false);
-  const wasSpeaking = useRef(false);
+  const listenTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const heard = useCallback((text: string) => {
     setLog((l) => [...l, { from: "person", text }]);
@@ -48,35 +47,36 @@ export function useGuide(persona: Persona, onAnswer: (text: string) => void) {
     onAnswer(text);
   });
   const voiceMode = mode === "voz" && speech.supported;
+  const { start: startListening, cancel: cancelListening } = speech;
 
-  /** The companion says something: shown always, spoken (then listened to) only in voice mode.
+  useEffect(() => () => clearTimeout(listenTimer.current), []);
+
+  /** The companion says something: shown always, spoken only in voice mode. Hands-free: the mic opens
+   *  only after THIS line has really finished playing (voice.speak's onDone, which never fires when
+   *  the audio is stopped or replaced) plus a short pause, so it never hears the companion itself.
    *  listen=false for lines that expect no answer ("Estoy leyendo su ficha…", "Vamos a la app") */
   const say = useCallback(
     (text: string, spoken?: string, listen = true) => {
       setLine(text);
       setLog((l) => [...l, { from: "companion", text }]);
       if (!voiceMode) return;
-      wantsListen.current = listen;
-      voice.speak(spoken ?? text, persona);
+      clearTimeout(listenTimer.current);
+      cancelListening(); // never keep the mic open while the companion talks
+      voice.speak(spoken ?? text, persona, () => {
+        if (!listen) return;
+        clearTimeout(listenTimer.current);
+        listenTimer.current = setTimeout(startListening, 700);
+      });
     },
-    [persona, voice, voiceMode],
+    [cancelListening, persona, startListening, voice, voiceMode],
   );
-
-  // Hands-free: when the companion finishes speaking, start listening
-  useEffect(() => {
-    if (wasSpeaking.current && !voice.speaking && wantsListen.current && voiceMode && !speech.listening) {
-      wantsListen.current = false;
-      speech.start();
-    }
-    wasSpeaking.current = voice.speaking;
-  }, [speech, voice.speaking, voiceMode]);
 
   /** Stop everything (before navigating, or when the person taps a button instead) */
   const quiet = useCallback(() => {
-    wantsListen.current = false;
+    clearTimeout(listenTimer.current);
     voice.stop();
-    if (speech.listening) speech.stop();
-  }, [speech, voice]);
+    cancelListening();
+  }, [cancelListening, voice]);
 
   const setMode = useCallback(
     (m: GuideMode) => {
@@ -87,14 +87,18 @@ export function useGuide(persona: Persona, onAnswer: (text: string) => void) {
     [quiet],
   );
 
-  /** Read the last message aloud on demand (chat mode) or repeat it (voice mode) */
+  /** Read the last message aloud on demand (chat mode) or repeat it (voice mode). The mic closes
+   *  while it plays; it doesn't reopen by itself after a manual repeat (tap "Tocar para hablar") */
   const repeat = useCallback(() => {
     if (voice.speaking) return voice.stop();
+    clearTimeout(listenTimer.current);
+    cancelListening();
     if (!voice.replay()) voice.speak(line, persona);
-  }, [line, persona, voice]);
+  }, [cancelListening, line, persona, voice]);
 
-  /** Tap on the mic button (voice mode) */
+  /** Tap on the talk button: stop the companion and listen (or finish listening) */
   const toggleListen = useCallback(() => {
+    clearTimeout(listenTimer.current);
     if (speech.listening) return speech.stop();
     voice.stop();
     speech.start();
