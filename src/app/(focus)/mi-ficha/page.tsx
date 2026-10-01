@@ -2,11 +2,11 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { CompanionPrompt, savedPersona } from "@/components/CompanionPrompt";
+import { savedPersona } from "@/components/CompanionPrompt";
+import { GuideConversation, SwitchToTyping } from "@/components/GuideConversation";
 import { useCare } from "@/components/CareProvider";
 import { Brand, Button, Icon, ProgressBar, SimulatedNote } from "@/components/ui";
-import { useCompanionVoice } from "@/hooks/useCompanionVoice";
-import { useSpeechInput } from "@/hooks/useSpeech";
+import { useGuide } from "@/hooks/useGuide";
 import { asExtracted } from "@/lib/ficha";
 import type { Persona } from "@/lib/mateo/prompt";
 import { normalize } from "@/lib/mateo/safety";
@@ -50,12 +50,10 @@ function Guide() {
   const params = useSearchParams();
   const { userId, data } = useCare();
   const supabase = getSupabase();
-  const voice = useCompanionVoice();
   const [persona] = useState<Persona>(savedPersona);
   const [step, setStep] = useState<Step>("ask");
   const [items, setItems] = useState<Item[]>([]);
   const [original, setOriginal] = useState<Item[]>([]);
-  const [line, setLine] = useState("");
   const [pct, setPct] = useState(0);
   const [demoReading, setDemoReading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -67,13 +65,10 @@ function Guide() {
   const spokeFirst = useRef(false);
   const name = firstName(data?.profile?.full_name);
 
-  const say = useCallback(
-    (text: string) => {
-      setLine(text);
-      voice.speak(text, persona);
-    },
-    [persona, voice],
-  );
+  // Voice or chat mode (chosen on /acompanante); answers said out loud go to the current step
+  const answerRef = useRef<(text: string) => void>(() => {});
+  const guide = useGuide(persona, (text) => answerRef.current(text));
+  const { say } = guide;
 
   // What is already on file, so nothing is asked twice
   useEffect(() => {
@@ -105,11 +100,11 @@ function Guide() {
 
   // Next guided step: the pills (/mis-remedios); the ficha, if any, travels along to propose its pills
   const finish = useCallback(() => {
-    voice.stop();
+    guide.quiet();
     const target = params.get("next");
     const next = target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio";
     router.replace(`/mis-remedios?next=${encodeURIComponent(next)}${recordId ? `&record=${recordId}` : ""}`);
-  }, [params, recordId, router, voice]);
+  }, [guide, params, recordId, router]);
 
   function toList(intro?: string) {
     setStep("list");
@@ -124,7 +119,7 @@ function Guide() {
     if (!f) return;
     setStep("reading");
     setPct(8);
-    say("Gracias. Estoy leyendo su ficha, deme un momento.");
+    say("Gracias. Estoy leyendo su ficha, deme un momento.", undefined, false);
 
     const safe = f.name.normalize("NFD").replace(/[^\w.-]+/g, "-");
     const path = `${userId}/${Date.now()}-${safe}`;
@@ -194,29 +189,43 @@ function Guide() {
     const ins = added.length ? await supabase.from("conditions").insert(added.map((a) => ({ user_id: userId, name: a.name, source: a.source }))) : { error: null };
     setSaving(false);
     if (del.error || ins.error) return say("No pude guardarlo. ¿Lo intentamos de nuevo?");
-    say(items.length ? "Listo, quedó anotado. Ahora sigamos con sus remedios." : "Muy bien. Ahora sigamos con sus remedios.");
+    say(items.length ? "Listo, quedó anotado. Ahora sigamos con sus remedios." : "Muy bien. Ahora sigamos con sus remedios.", undefined, false);
     setTimeout(finish, 1800);
   }
 
-  const speech = useSpeechInput((text) => {
+  // The phone only opens the camera or the file picker from a tap, so by voice we point to the button
+  function answer(text: string) {
     const t = normalize(text).trim();
     if (step === "ask") {
-      if (/foto|camara/.test(t)) return photo.current?.click();
-      if (/pdf|archivo|documento/.test(t)) return pdf.current?.click();
+      if (/foto|camara/.test(t)) return say("Muy bien. Toque el botón grande que dice «Sacar una foto».", undefined, false);
+      if (/pdf|archivo|documento/.test(t)) return say("Muy bien. Toque el botón «Subir un PDF».", undefined, false);
       if (/^no|no la tengo|no tengo/.test(t)) return toList();
-      return say("¿Quiere sacarle una foto, subir el PDF, o prefiere contarme usted? También puede tocar un botón.");
+      return say("¿Quiere sacarle una foto, subir el PDF, o prefiere contarme usted?");
     }
     if (step === "list") return DONE.test(t) ? save() : add(text);
+  }
+  useEffect(() => {
+    answerRef.current = answer;
   });
+
+  /** A tapped button counts as the person's answer (it shows in the chat) */
+  function tap(label: string, action: () => void) {
+    guide.quiet();
+    guide.heard(label);
+    action();
+  }
 
   function onType(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const value = new FormData(e.currentTarget).get("value")?.toString() ?? "";
-    if (value.trim()) add(value);
+    if (value.trim()) {
+      guide.heard(value);
+      add(value);
+    }
     e.currentTarget.reset();
   }
 
-  const state = speech.listening ? "listening" : step === "reading" || extracting ? "thinking" : voice.speaking ? "speaking" : "idle";
+  const { speech } = guide;
 
   return (
     <div className="flex flex-1 flex-col gap-4 px-6 pt-5 pb-6">
@@ -227,14 +236,7 @@ function Guide() {
         </button>
       </div>
 
-      <CompanionPrompt
-        persona={persona}
-        state={state}
-        line={line}
-        speaking={voice.speaking}
-        listening={speech.listening}
-        onRepeat={() => (voice.speaking ? voice.stop() : voice.replay() || voice.speak(line, persona))}
-      />
+      <GuideConversation guide={guide} persona={persona} thinking={step === "reading" || extracting} />
 
       <input ref={photo} type="file" accept="image/*" capture="environment" className="sr-only" onChange={onFile} aria-label="Sacar foto de la ficha" />
       <input ref={pdf} type="file" accept="application/pdf,.pdf,image/*" className="sr-only" onChange={onFile} aria-label="Elegir PDF de la ficha" />
@@ -268,8 +270,9 @@ function Guide() {
               ))}
             </ul>
           )}
-          {extracting && <p className="text-body font-bold text-ink-muted" aria-live="polite">Anotando…</p>}
+          {extracting && guide.mode === "voz" && <p className="text-body font-bold text-ink-muted" aria-live="polite">Anotando…</p>}
           {demoReading && <SimulatedNote>Lectura de ficha de demostración: revise que esté bien</SimulatedNote>}
+          {guide.mode === "chat" && (
           <form onSubmit={onType} className="flex items-center gap-3 pt-1">
             <input
               ref={textInput}
@@ -284,27 +287,29 @@ function Guide() {
               Agregar
             </button>
           </form>
+          )}
         </section>
       )}
 
       <div className="mt-auto flex flex-col gap-4">
-        {speech.supported && step !== "reading" && (
-          <Button variant="secondary" icon={speech.listening ? "stop" : "mic"} iconFill onClick={() => (speech.listening ? speech.stop() : (voice.stop(), speech.start()))}>
-            {speech.listening ? (speech.interim ? `"${speech.interim}…"` : "Le escucho…") : step === "list" ? "Decirlo hablando" : "Responder hablando"}
+        {guide.mode === "voz" && step !== "reading" && (
+          <Button variant={speech.listening ? "danger" : "secondary"} icon={speech.listening ? "stop" : "mic"} iconFill onClick={guide.toggleListen}>
+            {speech.listening ? "Terminar de hablar" : "Tocar para hablar"}
           </Button>
         )}
         {step === "ask" && (
           <>
-            <Button icon="photo_camera" onClick={() => photo.current?.click()}>Sacar una foto</Button>
-            <Button variant="secondary" icon="upload_file" onClick={() => pdf.current?.click()}>Subir un PDF</Button>
-            <Button variant="muted" onClick={() => toList()}>No la tengo</Button>
+            <Button icon="photo_camera" onClick={() => tap("Sacar una foto", () => photo.current?.click())}>Sacar una foto</Button>
+            <Button variant="secondary" icon="upload_file" onClick={() => tap("Subir un PDF", () => pdf.current?.click())}>Subir un PDF</Button>
+            <Button variant="muted" onClick={() => tap("No la tengo", () => toList())}>No la tengo</Button>
           </>
         )}
         {step === "list" && (
-          <Button icon="check" onClick={save} disabled={saving || extracting}>
+          <Button icon="check" onClick={() => tap("Eso es todo", save)} disabled={saving || extracting}>
             {saving ? "Un momento…" : "Eso es todo"}
           </Button>
         )}
+        <SwitchToTyping guide={guide} />
       </div>
     </div>
   );

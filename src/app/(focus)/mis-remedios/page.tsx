@@ -2,11 +2,11 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { CompanionPrompt, savedPersona } from "@/components/CompanionPrompt";
+import { savedPersona } from "@/components/CompanionPrompt";
+import { GuideConversation, SwitchToTyping } from "@/components/GuideConversation";
 import { useCare } from "@/components/CareProvider";
 import { Brand, Button, Icon, SimulatedNote } from "@/components/ui";
-import { useCompanionVoice } from "@/hooks/useCompanionVoice";
-import { useSpeechInput } from "@/hooks/useSpeech";
+import { useGuide } from "@/hooks/useGuide";
 import { asExtracted } from "@/lib/ficha";
 import type { Persona } from "@/lib/mateo/prompt";
 import { normalize } from "@/lib/mateo/safety";
@@ -69,10 +69,8 @@ function Guide() {
   const params = useSearchParams();
   const { userId, data, refresh } = useCare();
   const supabase = getSupabase();
-  const voice = useCompanionVoice();
   const [persona] = useState<Persona>(savedPersona);
   const [items, setItems] = useState<Med[]>([]);
-  const [line, setLine] = useState("");
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: "", amount: "", unit: "mg" as (typeof UNITS)[number], quantity: null as number | null });
@@ -80,13 +78,10 @@ function Guide() {
   const name = firstName(data?.profile?.full_name);
   const saved = data?.medications ?? [];
 
-  const say = useCallback(
-    (text: string, spoken?: string) => {
-      setLine(text);
-      voice.speak(spoken ?? text, persona);
-    },
-    [persona, voice],
-  );
+  // Voice or chat mode (chosen on /acompanante); "eso es todo" said out loud saves
+  const answerRef = useRef<(text: string) => void>(() => {});
+  const guide = useGuide(persona, (text) => answerRef.current(text));
+  const { say } = guide;
 
   // Pills found in the ficha (if the person uploaded one) are proposed, not saved
   useEffect(() => {
@@ -116,10 +111,10 @@ function Guide() {
   }, [data, name, params, say, supabase]);
 
   const finish = useCallback(() => {
-    voice.stop();
+    guide.quiet();
     const target = params.get("next");
     router.replace(target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio");
-  }, [params, router, voice]);
+  }, [guide, params, router]);
 
   /** Adds new pills or fills in what was missing (strength / quantity) of one already on the list */
   function merge(found: Med[]) {
@@ -163,6 +158,7 @@ function Guide() {
     const n = form.name.trim();
     if (n.length < 2) return say("Escriba el nombre de la pastilla, por favor.");
     const amount = form.amount.trim().replace(",", ".");
+    guide.heard([n, amount && `${amount} ${form.unit}`, form.quantity != null && `${form.quantity === 0.5 ? "½" : form.quantity} por vez`].filter(Boolean).join(" · "));
     merge([{ name: n.charAt(0).toUpperCase() + n.slice(1), strength: amount ? `${amount} ${form.unit}` : null, quantity: form.quantity }]);
     setForm({ name: "", amount: "", unit: "mg", quantity: null });
   }
@@ -174,7 +170,7 @@ function Guide() {
 
   async function save() {
     if (!items.length) {
-      say("Muy bien. Vamos a la aplicación.");
+      say("Muy bien. Vamos a la aplicación.", undefined, false);
       return setTimeout(finish, 1500);
     }
     setSaving(true);
@@ -184,12 +180,14 @@ function Guide() {
     setSaving(false);
     if (error) return say("No pude guardarlo. ¿Lo intentamos de nuevo?");
     refresh();
-    say("Listo, quedaron anotadas. Vamos a la aplicación.");
+    say("Listo, quedaron anotadas. Vamos a la aplicación.", undefined, false);
     setTimeout(finish, 1800);
   }
 
-  const speech = useSpeechInput((text) => (DONE.test(normalize(text).trim()) ? save() : addSpoken(text)));
-  const state = speech.listening ? "listening" : busy ? "thinking" : voice.speaking ? "speaking" : "idle";
+  useEffect(() => {
+    answerRef.current = (text) => (DONE.test(normalize(text).trim()) ? save() : addSpoken(text));
+  });
+  const { speech } = guide;
   const field = "min-h-14 w-full min-w-0 rounded-btn border-2 border-line-strong bg-surface px-4 text-body-lg focus:border-primary";
   const chip = (on: boolean) =>
     `min-h-14 min-w-14 cursor-pointer rounded-full border-2 px-4 text-body-lg font-bold ${on ? "border-primary bg-primary text-white" : "border-line-strong bg-surface text-ink"}`;
@@ -203,14 +201,7 @@ function Guide() {
         </button>
       </div>
 
-      <CompanionPrompt
-        persona={persona}
-        state={state}
-        line={line}
-        speaking={voice.speaking}
-        listening={speech.listening}
-        onRepeat={() => (voice.speaking ? voice.stop() : voice.replay() || voice.speak(line, persona))}
-      />
+      <GuideConversation guide={guide} persona={persona} thinking={busy} />
 
       {(saved.length > 0 || items.length > 0) && (
         <section className="flex flex-col gap-3 rounded-card border border-line bg-surface p-5" aria-live="polite">
@@ -244,11 +235,12 @@ function Guide() {
               </li>
             ))}
           </ul>
-          {busy && <p className="text-body font-bold text-ink-muted">Anotando…</p>}
+          {busy && guide.mode === "voz" && <p className="text-body font-bold text-ink-muted">Anotando…</p>}
           {items.some((m) => m.fromFicha) && <SimulatedNote>Lectura de ficha de demostración: revise que esté bien</SimulatedNote>}
         </section>
       )}
 
+      {guide.mode === "chat" && (
       <form onSubmit={addTyped} className="flex flex-col gap-3 rounded-card border border-line bg-surface p-5">
         <h2 className="text-body font-bold text-ink-muted">O escríbala aquí</h2>
         <label className="flex flex-col gap-1.5">
@@ -298,16 +290,26 @@ function Guide() {
           Agregar pastilla
         </Button>
       </form>
+      )}
 
       <div className="mt-auto flex flex-col gap-4">
-        {speech.supported && (
-          <Button variant="secondary" icon={speech.listening ? "stop" : "mic"} iconFill onClick={() => (speech.listening ? speech.stop() : (voice.stop(), speech.start()))}>
-            {speech.listening ? (speech.interim ? `"${speech.interim}…"` : "Le escucho…") : "Decirlo hablando"}
+        {guide.mode === "voz" && (
+          <Button variant={speech.listening ? "danger" : "secondary"} icon={speech.listening ? "stop" : "mic"} iconFill onClick={guide.toggleListen}>
+            {speech.listening ? "Terminar de hablar" : "Tocar para hablar"}
           </Button>
         )}
-        <Button icon="check" onClick={save} disabled={saving || busy}>
+        <Button
+          icon="check"
+          onClick={() => {
+            guide.quiet();
+            guide.heard("Eso es todo");
+            save();
+          }}
+          disabled={saving || busy}
+        >
           {saving ? "Un momento…" : items.length ? "Eso es todo, guardar" : "Eso es todo"}
         </Button>
+        <SwitchToTyping guide={guide} />
       </div>
     </div>
   );

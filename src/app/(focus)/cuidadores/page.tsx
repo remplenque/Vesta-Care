@@ -3,10 +3,10 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useCare } from "@/components/CareProvider";
-import { CompanionPrompt, savedPersona } from "@/components/CompanionPrompt";
+import { savedPersona } from "@/components/CompanionPrompt";
+import { GuideConversation, SwitchToTyping } from "@/components/GuideConversation";
 import { Brand, Button, Icon } from "@/components/ui";
-import { useCompanionVoice } from "@/hooks/useCompanionVoice";
-import { useSpeechInput } from "@/hooks/useSpeech";
+import { useGuide } from "@/hooks/useGuide";
 import type { Persona } from "@/lib/mateo/prompt";
 import { normalize } from "@/lib/mateo/safety";
 import { displayMobile, spokenMobile, toChileanMobile } from "@/lib/phone";
@@ -45,39 +45,36 @@ function Guide() {
   const params = useSearchParams();
   const { userId, data, refresh } = useCare();
   const supabase = getSupabase();
-  const voice = useCompanionVoice();
   const [persona] = useState<Persona>(savedPersona);
   const [step, setStep] = useState<Step>("ask");
   const [phone, setPhone] = useState("");
   const [contactName, setContactName] = useState("");
   const [added, setAdded] = useState<string[]>([]);
-  const [line, setLine] = useState("");
   const [busy, setBusy] = useState(false);
   const spokeFirst = useRef(false);
 
   const name = firstName(data?.profile?.full_name);
   const existing = (data?.contacts ?? []).map((c) => firstName(c.name));
 
-  // What is shown and what is heard can differ: the screen shows "9 1234 5678", the voice reads it
-  // digit by digit so it is easy to check by ear
-  const say = useCallback(
-    (text: string, spoken?: string) => {
-      setLine(text);
-      voice.speak(spoken ?? text, persona);
-    },
-    [persona, voice],
-  );
+  // Voice or chat mode (chosen on /acompanante). Answers said out loud go to the current step.
+  // What is shown and what is heard can differ: "9 1234 5678" on screen, digit by digit out loud.
+  const answerRef = useRef<(text: string) => void>(() => {});
+  const guide = useGuide(persona, (text) => answerRef.current(text));
+  const { say } = guide;
 
   const prompts = useCallback(
     (s: Step, extra?: { saved?: string }) => {
       const hi = name ? `${name}, ` : "";
       switch (s) {
         case "ask": {
-          const has = existing.length ? ` Ya tiene a ${existing.join(" y ")}.` : "";
+          const list = existing.length > 1 ? `${existing.slice(0, -1).join(", ")} y ${existing.at(-1)}` : existing[0];
+          const has = existing.length ? ` Ya tiene a ${list}.` : "";
           return `${hi}¿quiere agregar a alguien de confianza que le cuide o le acompañe? Si pasa algo, esa persona recibe un aviso.${has}`;
         }
         case "phone":
-          return "¿Cuál es el número de celular de esa persona? Puede decírmelo o escribirlo.";
+          return guide.mode === "chat"
+            ? "¿Cuál es el número de celular de esa persona? Escríbalo abajo."
+            : "¿Cuál es el número de celular de esa persona? Dígamelo despacio.";
         case "name":
           return "Muy bien. ¿Y cómo se llama?";
         case "confirm":
@@ -86,7 +83,7 @@ function Guide() {
           return `Listo, guardé a ${extra?.saved ?? contactName}. ¿Quiere agregar a otra persona?`;
       }
     },
-    [contactName, existing, name],
+    [contactName, existing, guide.mode, name],
   );
 
   // Greet once the person's data is here (so the companion can say their name)
@@ -98,11 +95,11 @@ function Guide() {
 
   // Next guided step: the medical record (/mi-ficha), which then continues to the app
   const finish = useCallback(() => {
-    voice.stop();
+    guide.quiet();
     const target = params.get("next");
     const next = target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio";
     router.replace(`/mi-ficha?next=${encodeURIComponent(next)}`);
-  }, [params, router, voice]);
+  }, [guide, params, router]);
 
   function go(s: Step) {
     setStep(s);
@@ -146,25 +143,38 @@ function Guide() {
     go("phone");
   }
 
-  // Voice answers go to whatever the current step is asking
-  const speech = useSpeechInput((text) => {
+  // Answers (said out loud) go to whatever the current step is asking
+  function answer(text: string) {
     if (step === "phone") return submitPhone(text);
     if (step === "name") return submitName(text);
     const a = answerOf(text);
     if (step === "ask") return a === "yes" ? go("phone") : a === "no" ? finish() : say("¿Me dice sí o no, por favor? También puede tocar un botón.");
     if (step === "confirm") return a === "yes" ? save() : a === "no" ? restart() : say("¿Está bien así? Dígame sí o no.");
     if (step === "saved") return a === "yes" ? restart() : a === "no" ? finish() : say("¿Quiere agregar a otra persona? Dígame sí o no.");
+  }
+
+  useEffect(() => {
+    answerRef.current = answer;
   });
+
+  /** A tapped button counts as the person's answer (it shows in the chat) */
+  function tap(label: string, action: () => void) {
+    guide.quiet();
+    guide.heard(label);
+    action();
+  }
 
   function onType(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const value = new FormData(e.currentTarget).get("value")?.toString() ?? "";
+    if (!value.trim()) return;
+    guide.heard(step === "phone" ? `+56 ${value}` : value);
     if (step === "phone") submitPhone(value);
     else submitName(value);
     e.currentTarget.reset();
   }
 
-  const state = speech.listening ? "listening" : voice.speaking ? "speaking" : "idle";
+  const { speech } = guide;
   const field = "min-h-16 w-full min-w-0 flex-1 bg-transparent px-4 text-body-lg focus:outline-none";
 
   return (
@@ -176,14 +186,7 @@ function Guide() {
         </button>
       </div>
 
-      <CompanionPrompt
-        persona={persona}
-        state={state}
-        line={line}
-        speaking={voice.speaking}
-        listening={speech.listening}
-        onRepeat={() => (voice.speaking ? voice.stop() : voice.replay() || voice.speak(line, persona))}
-      />
+      <GuideConversation guide={guide} persona={persona} thinking={busy} />
 
       {added.length > 0 && (
         <p className="flex items-center gap-2 text-body text-ok">
@@ -192,7 +195,7 @@ function Guide() {
         </p>
       )}
 
-      {(step === "phone" || step === "name") && (
+      {(step === "phone" || step === "name") && guide.mode === "chat" && (
         <form onSubmit={onType} className="flex flex-col gap-3">
           <label className="flex flex-col gap-2">
             <span className="text-body-lg font-bold">{step === "phone" ? "Número de celular" : "Nombre"}</span>
@@ -220,29 +223,36 @@ function Guide() {
       )}
 
       <div className="mt-auto flex flex-col gap-4">
-        {speech.supported && (
-          <Button variant="secondary" icon={speech.listening ? "stop" : "mic"} iconFill onClick={() => (speech.listening ? speech.stop() : (voice.stop(), speech.start()))}>
-            {speech.listening ? (speech.interim ? `"${speech.interim}…"` : "Le escucho…") : "Responder hablando"}
+        {guide.mode === "voz" && (
+          <Button variant={speech.listening ? "danger" : "primary"} icon={speech.listening ? "stop" : "mic"} iconFill onClick={guide.toggleListen}>
+            {speech.listening ? "Terminar de hablar" : "Tocar para hablar"}
           </Button>
         )}
         {step === "ask" && (
           <>
-            <Button icon="person_add" onClick={() => go("phone")}>Sí, agregar a alguien</Button>
-            <Button variant="muted" onClick={finish}>No, por ahora no</Button>
+            <Button variant={guide.mode === "voz" ? "secondary" : "primary"} icon="person_add" onClick={() => tap("Sí, agregar a alguien", () => go("phone"))}>
+              Sí, agregar a alguien
+            </Button>
+            <Button variant="muted" onClick={() => tap("No, por ahora no", finish)}>No, por ahora no</Button>
           </>
         )}
         {step === "confirm" && (
           <>
-            <Button icon="check" onClick={save} disabled={busy}>{busy ? "Un momento…" : "Sí, guardar"}</Button>
-            <Button variant="muted" icon="edit" onClick={restart}>No, corregir</Button>
+            <Button variant={guide.mode === "voz" ? "secondary" : "primary"} icon="check" onClick={() => tap("Sí, guardar", save)} disabled={busy}>
+              {busy ? "Un momento…" : "Sí, guardar"}
+            </Button>
+            <Button variant="muted" icon="edit" onClick={() => tap("No, corregir", restart)}>No, corregir</Button>
           </>
         )}
         {step === "saved" && (
           <>
-            <Button icon="person_add" onClick={restart}>Sí, agregar otra persona</Button>
-            <Button variant="muted" onClick={finish}>No, seguir</Button>
+            <Button variant={guide.mode === "voz" ? "secondary" : "primary"} icon="person_add" onClick={() => tap("Sí, otra persona", restart)}>
+              Sí, agregar otra persona
+            </Button>
+            <Button variant="muted" onClick={() => tap("No, seguir", finish)}>No, seguir</Button>
           </>
         )}
+        <SwitchToTyping guide={guide} />
       </div>
     </div>
   );
