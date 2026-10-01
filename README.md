@@ -36,10 +36,22 @@ no se edita a mano**.
 
 ## Arranque
 
-La app Next.js todavía no está en el repositorio. Por ahora:
+```bash
+npm install
+cp .env.example .env.local   # claves de Supabase, ids del demo y del LLM
+npm run dev                  # http://localhost:3000
+```
+
+| Ruta | Qué es |
+|---|---|
+| `/` | PWA de Don Luis (bienvenida → onboarding → inicio) |
+| `/demo` | Panel de escenarios para operar el demo (desktop) |
+| `/demo/whatsapp` | WhatsApp **simulado** del contacto |
+| `/c/[token]` | Vista de solo lectura del contacto |
+
+Regenerar tipos tras cambiar el esquema:
 
 ```bash
-cp .env.example .env.local   # claves de Supabase y del LLM
 npx supabase gen types typescript --project-id "$SUPABASE_PROJECT_ID" > src/types/supabase.ts
 ```
 

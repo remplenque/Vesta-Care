@@ -82,17 +82,33 @@ Simulador ──► ingest_reading / ingest_bp ──► readings
 │   ├── ACCESSIBILITY.md       ← reglas de interfaz (vinculante)
 │   ├── OPEN-ISSUES.md         ← bloqueantes y decisiones pendientes
 │   └── archive/v3/            ← spec v3 (Flask + SQLite), DESCARTADA. Solo consulta
+├── supabase/migrations/       ← ★ esquema, motor de reglas, RPCs, RLS y seed (SQL aplicado)
+├── scripts/create-demo-user.sql ← crea a Don Luis y su contacto
 ├── src/
-│   └── types/supabase.ts      ← ★ generado desde Supabase (Baptiste)
+│   ├── types/supabase.ts      ← ★ generado desde Supabase (Baptiste)
+│   ├── proxy.ts               ← sesión de Supabase + rutas protegidas (Next 16: ex-middleware)
+│   ├── app/
+│   │   ├── bienvenida, ingresar, onboarding/{ficha,confirmar,contactos}   ← 01a–01d
+│   │   ├── (app)/{inicio,pastillero,mateo,modulos}   ← 02, 04, 06, 07 (con barra inferior)
+│   │   ├── (focus)/{modulos/[id],alerta/[id]}       ← 03, 05, 05b (pantalla completa)
+│   │   ├── c/[token]          ← 08 vista del contacto (solo lectura, vía get_contact_view)
+│   │   ├── demo, demo/whatsapp ← 10 panel de escenarios · 09 WhatsApp simulado
+│   │   └── api/{mateo,ficha/extract,demo/reset}     ← stubs de Mateo (P3) + reset del demo
+│   ├── components/            ← ui.tsx (Button, StatusBadge…), ModuleCard, CareProvider
+│   ├── hooks/useSpeech.ts     ← voz (Web Speech API)
+│   └── lib/                   ← rules (espejo de evaluate_level), vitals, pillbox, time, copy
 ├── legacy/                    ← solo lectura · legacy/README.md
 │   ├── Mateo-main/            ← agente Mateo original (Python, 2025)
 │   └── vesta-v3/              ← scaffold de la v3 descartada
 └── Mateo-main.zip             ← zip original del legacy
 ```
 
-Rutas de la app que define el acta (por crear): PWA del usuario, vista del contacto `/c/[token]`,
-simulador de WhatsApp `/demo/whatsapp` y panel de escenarios. La estructura del proyecto Next.js
-la fija quien lo cree; actualizar este árbol en el mismo commit.
+La interfaz implementa el diseño de Claude Design "Vesta Care.dc.html" (tokens en
+`src/app/globals.css`). Si cambia la estructura, actualizar este árbol en el mismo commit.
+
+**Stubs para P3 (Mateo/IA):** `src/app/api/mateo/route.ts` (chat) y
+`src/app/api/ficha/extract/route.ts` (extracción de la ficha) devuelven respuestas fijas. Cada
+uno documenta el contrato que usa la pantalla: reemplazar el cuerpo, no la forma.
 
 ## 5. Convenciones
 
@@ -133,3 +149,13 @@ Equipo: Vicente Rodríguez · Baptiste Vial · Luis-Felipe Cáceres. **Roles sin
 - [ ] Lo simulado se ve como simulado
 - [ ] Sin secretos en el código
 - [ ] Sirve al recorrido del demo (acta §9). Si no, espera hasta después de h7
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
