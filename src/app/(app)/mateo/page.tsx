@@ -13,7 +13,8 @@ import { getSupabase } from "@/lib/supabase/client";
 import { firstName } from "@/lib/time";
 
 // 06 · Chat with the companion. The face is the mic (single tap, ACCESSIBILITY §6); one message
-// at a time in a fixed-height bubble that scrolls inside (with a "Ver más" button, §6: no gesture
+// at a time in a fixed-height bubble that scrolls inside with a "Deslice para leer más" hint
+// ("Repetir" reads the whole message, so swiping is not the only way to get it; §6 no gesture
 // is the only way); "Repetir" replays the same recording (§7); tap-to-answer suggestions.
 // History is persisted in chat_messages and sent to /api/mateo as context.
 
@@ -64,7 +65,7 @@ function Chat() {
       .then(({ data }) => setHistory((data ?? []).reverse()));
   }, [supabase, userId]);
 
-  // "Ver más" appears only while there is unread text below
+  // The swipe hint appears only while there is unread text below
   const updateMore = useCallback(() => {
     const el = textBox.current;
     if (!el) return;
@@ -207,11 +208,18 @@ function Chat() {
           {status}
         </p>
 
-        <section className="flex min-h-[120px] w-full shrink flex-col rounded-card border border-line bg-surface">
+        {/* Takes the free space; long messages scroll inside it, the screen never grows */}
+        <section className="flex min-h-[10rem] w-full flex-1 rounded-card border border-line bg-surface">
           <div className="flex min-h-0 flex-1 gap-3 p-4">
-            <div ref={textBox} onScroll={updateMore} aria-live="polite" className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
+            <div ref={textBox} onScroll={updateMore} aria-live="polite" className="relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
               {said && <p className="mb-1.5 text-body text-ink-muted">Usted: “{said}”</p>}
               <p className="text-body-lg font-semibold">{thinking ? "Pensando…" : shown}</p>
+              {more && (
+                <p aria-hidden className="sticky bottom-0 flex items-center gap-1 bg-gradient-to-t from-surface from-60% to-transparent pt-4 text-small font-bold text-primary">
+                  <Icon name="swipe_up" size="1.3rem" />
+                  Deslice para leer más
+                </p>
+              )}
             </div>
             <button
               type="button"
@@ -223,16 +231,6 @@ function Chat() {
               {voice.speaking ? "Detener" : "Repetir"}
             </button>
           </div>
-          {more && (
-            <button
-              type="button"
-              onClick={() => textBox.current?.scrollBy({ top: textBox.current.clientHeight * 0.8, behavior: "smooth" })}
-              className="mx-4 mb-3 flex min-h-14 cursor-pointer items-center justify-center gap-1.5 rounded-btn border-2 border-line-strong text-body font-bold text-primary"
-            >
-              <Icon name="expand_more" size="1.6rem" />
-              Ver más
-            </button>
-          )}
         </section>
 
         <div role="group" aria-label="Respuestas rápidas" className="flex shrink-0 flex-wrap justify-center gap-3 pb-3">
