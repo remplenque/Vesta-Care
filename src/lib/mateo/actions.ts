@@ -6,7 +6,10 @@ import { normalize } from "./safety";
 // Changes Mateo can PROPOSE from the chat. The model never writes anything: /api/mateo validates
 // each proposal against the person's real data, the chat shows it as a card, and only after the
 // person confirms ("Sí, anótelo") does the app write it with the user's session (AGENTS.md §3.8).
-//   dose_taken      → readings.dose_taken via ingest_reading (same as the Pastillero's button)
+//   dose_taken      → readings.dose_taken via ingest_reading (same as the Pastillero's button).
+//                     Exception agreed with the team: written right away when the person says they
+//                     took it (that sentence is the confirmation); the chat says "Anotado" and offers
+//                     "Deshacer". The other two still wait for "sí".
 //   dose_not_taken  → removes today's dose_taken record for that dose (same as its "Deshacer")
 //   add_medication  → new row in medications (dose "50 mg · 1 pastilla", schedule.times)
 

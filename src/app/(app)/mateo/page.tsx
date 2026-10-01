@@ -10,7 +10,7 @@ import { useSpeechInput } from "@/hooks/useSpeech";
 import type { ChatMessage } from "@/lib/data";
 import type { MateoAction } from "@/lib/mateo/actions";
 import { PERSONAS, type Persona } from "@/lib/mateo/prompt";
-import { todaySlots } from "@/lib/pillbox";
+import { medLabel, todaySlots } from "@/lib/pillbox";
 import { answerOf } from "@/lib/yesno";
 import { getSupabase } from "@/lib/supabase/client";
 import { firstName } from "@/lib/time";
@@ -51,6 +51,7 @@ function Chat() {
   const [draft, setDraft] = useState("");
   const [more, setMore] = useState(false);
   const [pending, setPending] = useState<MateoAction[]>([]); // proposals waiting for "sí"
+  const [justMarked, setJustMarked] = useState<{ label: string; readingId: string }[]>([]);
   const textBox = useRef<HTMLDivElement>(null);
   const autoStarted = useRef(false);
 
@@ -80,11 +81,13 @@ function Chat() {
     requestAnimationFrame(updateMore);
   }, [shown, said, updateMore]);
 
-  /** Writes confirmed proposals with the user's session, like the Pastillero does; returns what to say */
+  /** Writes proposals with the user's session, like the Pastillero does. Returns what to say, the
+   *  doses marked (for the green "Anotado" line) and their reading ids (for "Deshacer") */
   const runActions = useCallback(
     async (list: MateoAction[]) => {
       const slots = todaySlots(data?.medications ?? [], data?.readings ?? [], tz);
       const done: string[] = [];
+      const marked: { label: string; readingId: string }[] = [];
       for (const a of list) {
         if (a.type === "add_medication") {
           const { error } = await supabase.from("medications").insert({ user_id: userId, name: a.name, dose: a.dose, schedule: { times: a.times } });
@@ -94,7 +97,7 @@ function Chat() {
         const slot = slots.find((x) => `${x.medication.id}|${x.time}` === a.ref);
         if (!slot) continue;
         if (a.type === "dose_taken" && slot.status !== "taken") {
-          const { error } = await supabase.rpc("ingest_reading", {
+          const { data: readingId, error } = await supabase.rpc("ingest_reading", {
             p_user_id: userId,
             p_module_id: "pillbox",
             p_metric: "dose_taken",
@@ -104,15 +107,16 @@ function Chat() {
             p_metadata: { medication_id: slot.medication.id, scheduled_for: slot.at.toISOString(), via: "mateo" },
           });
           if (!error) done.push(`anoté ${slot.medication.name} de las ${slot.time} como tomada`);
+          if (!error && readingId) marked.push({ label: `${medLabel(slot.medication)} de las ${slot.time}`, readingId });
         } else if (a.type === "dose_not_taken" && slot.takenReadingId) {
           const { error } = await supabase.from("readings").delete().eq("id", slot.takenReadingId);
           if (!error) done.push(`quité la marca de ${slot.medication.name} de las ${slot.time}`);
         }
       }
-      await refresh(); // Inicio, Pastillero and Mateo's next answer see the change
-      if (!done.length) return "No pude anotarlo. ¿Lo intentamos de nuevo?";
+      await refresh(); // Inicio, Pastillero (green) and Mateo's next answer see the change
+      if (!done.length) return { text: "No pude anotarlo. ¿Lo intentamos de nuevo?", marked };
       const text = done.length > 1 ? `${done.slice(0, -1).join(", ")} y ${done.at(-1)}` : done[0];
-      return `Listo${name ? `, ${name}` : ""}: ${text}.`;
+      return { text: `Listo${name ? `, ${name}` : ""}: ${text}.`, marked };
     },
     [data, name, refresh, supabase, tz, userId],
   );
@@ -124,6 +128,7 @@ function Chat() {
       voice.stop();
       setChatting(true);
       setSaid(content);
+      setJustMarked([]);
       setThinking(true);
       const { data: userMsg } = await supabase
         .from("chat_messages")
@@ -138,7 +143,7 @@ function Chat() {
       if (yn) {
         const list = pending;
         setPending([]);
-        answer = yn === "yes" ? { reply: await runActions(list), suggestions: START } : { reply: "Bueno, no lo anoto.", suggestions: START };
+        answer = yn === "yes" ? { reply: (await runActions(list)).text, suggestions: START } : { reply: "Bueno, no lo anoto.", suggestions: START };
       } else try {
         const res = await fetch("/api/mateo", {
           method: "POST",
@@ -150,9 +155,22 @@ function Chat() {
       } catch {
         answer = { reply: "No pude responderle. ¿Lo intentamos de nuevo?", suggestions: [content], fallback: true };
       }
+      // The person saying they took it IS the confirmation: mark it now and just say "Anotado"
+      // (agreed exception to AGENTS.md §3.8 for doses only, with "Deshacer" right there).
+      // Adding a pill or removing a mark still waits for "sí".
+      if (!yn) {
+        const taken = (answer.actions ?? []).filter((a) => a.type === "dose_taken");
+        setPending((answer.actions ?? []).filter((a) => a.type !== "dose_taken"));
+        if (taken.length) {
+          const { marked } = await runActions(taken);
+          if (marked.length) {
+            setJustMarked(marked);
+            answer = { ...answer, reply: "Anotado.", suggestions: START };
+          }
+        }
+      }
       setThinking(false);
       setReply(answer.reply);
-      if (!yn) setPending(answer.actions ?? []);
       setSuggestions(answer.suggestions?.length ? answer.suggestions : START);
       voice.speak(answer.reply, persona);
       const { data: botMsg } = await supabase
@@ -280,6 +298,28 @@ function Chat() {
             </button>
           </div>
         </section>
+
+        {justMarked.length > 0 && (
+          <section aria-live="polite" className="flex w-full shrink-0 items-center gap-3 rounded-card border-2 border-ok bg-ok-soft p-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ok text-white">
+              <Icon name="check" size="1.6rem" />
+            </span>
+            <span className="flex-1 text-body-lg font-bold text-ok">Anotado: {justMarked.map((m) => m.label).join(", ")}</span>
+            <button
+              type="button"
+              onClick={async () => {
+                const ids = justMarked.map((m) => m.readingId);
+                setJustMarked([]);
+                await supabase.from("readings").delete().in("id", ids);
+                await refresh();
+                setReply("Bueno, lo quité.");
+              }}
+              className="min-h-14 cursor-pointer rounded-btn border-2 border-ok bg-surface px-3 text-body font-bold text-ok"
+            >
+              Deshacer
+            </button>
+          </section>
+        )}
 
         {pending.length > 0 && (
           <section aria-label="Para anotar" className="flex w-full shrink-0 flex-col gap-3 rounded-card border-2 border-primary bg-primary-soft p-4">
