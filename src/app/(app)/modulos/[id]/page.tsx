@@ -10,6 +10,7 @@ import { moduleUi, VITAL_MODULES } from "@/lib/modules";
 import { getSupabase } from "@/lib/supabase/client";
 import { dayLabel, timeAgo } from "@/lib/time";
 import { dailyPoints, daysInRange, thresholdsFor, vitalSeries, type DayPoint } from "@/lib/vitals";
+import { DASHBOARD_PATH } from "@/lib/nav";
 
 const rand = (lo: number, hi: number) => Math.round(lo + Math.random() * (hi - lo));
 
@@ -140,7 +141,7 @@ export default function ModuleDetail() {
   return (
     <div className="flex flex-col pb-6">
       <div className="px-4 pt-2">
-        <BackButton href="/inicio" label="Inicio" />
+        <BackButton onClick={() => (history.length > 1 ? router.back() : router.push(DASHBOARD_PATH))} />
       </div>
       <header className="flex items-center gap-3 px-6 pt-2">
         <Icon name={ui.icon} size="2rem" className="text-primary" />

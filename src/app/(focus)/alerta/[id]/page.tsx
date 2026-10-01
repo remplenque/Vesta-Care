@@ -10,6 +10,7 @@ import { moduleUi } from "@/lib/modules";
 import { getSupabase } from "@/lib/supabase/client";
 import { firstName, formatTime, timeAgo } from "@/lib/time";
 import { thresholdsFor } from "@/lib/vitals";
+import { HOME_PATH } from "@/lib/nav";
 
 type Notified = { ts: string; contact: { name: string; relation: string | null } | null };
 
@@ -62,7 +63,7 @@ export default function AlertScreen() {
   if (missing) {
     return (
       <div className="flex flex-col gap-4 p-6">
-        <BackButton href="/inicio" label="Inicio" />
+        <BackButton href={HOME_PATH} label="Inicio" />
         <p className="text-body-lg">No encontré esta alerta.</p>
       </div>
     );
@@ -113,7 +114,7 @@ export default function AlertScreen() {
   return (
     <div className={`flex min-h-dvh flex-col ${tone.page}`}>
       <div className="px-4 pt-2">
-        <button type="button" onClick={() => router.push("/inicio")} className="inline-flex min-h-14 cursor-pointer items-center gap-1.5 px-3 text-body font-bold">
+        <button type="button" onClick={() => router.push(HOME_PATH)} className="inline-flex min-h-14 cursor-pointer items-center gap-1.5 px-3 text-body font-bold">
           <Icon name="arrow_back" size="1.75rem" />
           Inicio
         </button>
@@ -129,13 +130,15 @@ export default function AlertScreen() {
           <StatusBadge status="warn" />
         )}
         <h1 className="text-lead font-bold">{copy.title}</h1>
-        {alert.module_id !== "pillbox" && valueText && (
+        {alert.module_id !== "pillbox" && alert.module_id !== "sos" && valueText && (
           <div className="flex flex-wrap items-baseline gap-2.5">
             <span className="text-alarm font-extrabold tracking-tight">{valueText}</span>
             <span className="text-lead font-semibold">{ui.unit}</span>
           </div>
         )}
-        <span className={`text-body ${tone.sub}`}>Medido {timeAgo(alert.ts, now)}</span>
+        <span className={`text-body ${tone.sub}`}>
+          {alert.module_id === "sos" ? "Pedido" : "Medido"} {timeAgo(alert.ts, now)}
+        </span>
       </div>
 
       <section className="mx-4 mt-6 flex flex-col gap-4 rounded-card bg-surface p-[22px] text-ink">
@@ -189,7 +192,7 @@ export default function AlertScreen() {
             <span />
           )}
           {acked ? (
-            <Button href="/inicio" variant={critical ? "outline-inverse" : "secondary"} icon="home" className="text-body">
+            <Button href={HOME_PATH} variant={critical ? "outline-inverse" : "secondary"} icon="home" className="text-body">
               Ir al inicio
             </Button>
           ) : (

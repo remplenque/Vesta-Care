@@ -76,6 +76,12 @@ export function alertCopy(alert: Pick<Alert, "module_id" | "metric" | "value" | 
         explain: "Un remedio de hoy no quedó registrado. ¿Se lo tomó?",
         steps: ["Si ya se lo tomó, márquelo en el pastillero.", "Si no, revise con su médico si puede tomarlo ahora. No tome doble dosis."],
       };
+    case "sos":
+      return {
+        title: "Pidió ayuda",
+        explain: "Tocó el botón de ayuda. Ya avisé a su familia para que sepa cómo está.",
+        steps: ["Quédese donde está y, si puede, siéntese.", "Si es una emergencia, llame al 131.", "Si fue sin querer, toque «Estoy bien»."],
+      };
     default:
       return { title: "Alerta", explain: alert.metric, steps: ["Si se siente mal, llame al 131."] };
   }

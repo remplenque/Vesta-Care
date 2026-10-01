@@ -8,6 +8,7 @@ import { Brand, Button, Icon } from "@/components/ui";
 import { useCompanionVoice } from "@/hooks/useCompanionVoice";
 import { PERSONAS, type Persona } from "@/lib/mateo/prompt";
 import { firstName } from "@/lib/time";
+import { HOME_PATH } from "@/lib/nav";
 
 // After login: the person picks who keeps them company (Mateo or Emilia), sees the face and hears
 // the voice before deciding. One tap on a card = choose + hear it; one tap on "Seguir" = done.
@@ -54,7 +55,7 @@ function Chooser() {
     } catch {}
     // Next: its own screen to choose voice or chat, then the guided steps
     const target = params.get("next");
-    const next = target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio";
+    const next = target && target.startsWith("/") && !target.startsWith("//") ? target : HOME_PATH;
     router.replace(`/como-seguir?next=${encodeURIComponent(next)}`);
   }
 

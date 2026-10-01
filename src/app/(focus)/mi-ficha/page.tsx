@@ -12,6 +12,7 @@ import type { Persona } from "@/lib/mateo/prompt";
 import { normalize } from "@/lib/mateo/safety";
 import { getSupabase } from "@/lib/supabase/client";
 import { firstName } from "@/lib/time";
+import { HOME_PATH } from "@/lib/nav";
 
 // After the caregivers step: the medical record, guided by voice.
 //   ask      → photo of the ficha / PDF / "No la tengo"
@@ -102,7 +103,7 @@ function Guide() {
   const finish = useCallback(() => {
     guide.quiet();
     const target = params.get("next");
-    const next = target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio";
+    const next = target && target.startsWith("/") && !target.startsWith("//") ? target : HOME_PATH;
     router.replace(`/mis-remedios?next=${encodeURIComponent(next)}${recordId ? `&record=${recordId}` : ""}`);
   }, [guide, params, recordId, router]);
 

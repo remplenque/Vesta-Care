@@ -44,7 +44,7 @@ npm run dev                  # http://localhost:3000
 
 | Ruta | Qué es |
 |---|---|
-| `/` | PWA de Don Luis (bienvenida → onboarding → inicio) |
+| `/` | PWA de Don Luis (bienvenida → onboarding → acompañante `/mateo`, que es el inicio) |
 | `/demo` | Panel de escenarios para operar el demo (desktop): simulador en tiempo real de 3 usuarios ficticios. Luis (todo en rango), Rosa (genera alertas) y Jorge (cuenta nueva, hace el onboarding). Requiere `SUPABASE_SERVICE_ROLE_KEY`; "Reiniciar" crea las cuentas que falten |
 | `/demo/whatsapp` | WhatsApp **simulado** del contacto |
 | `/c/[token]` | Vista de solo lectura del contacto |

@@ -12,6 +12,7 @@ import type { Persona } from "@/lib/mateo/prompt";
 import { normalize } from "@/lib/mateo/safety";
 import { getSupabase } from "@/lib/supabase/client";
 import { firstName } from "@/lib/time";
+import { HOME_PATH } from "@/lib/nav";
 
 // After the medical record step: the pills the person takes, guided by voice.
 // Each pill: name (required), strength ("50 mg", recommended) and how many per take (optional).
@@ -113,7 +114,7 @@ function Guide() {
   const finish = useCallback(() => {
     guide.quiet();
     const target = params.get("next");
-    router.replace(target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio");
+    router.replace(target && target.startsWith("/") && !target.startsWith("//") ? target : HOME_PATH);
   }, [guide, params, router]);
 
   /** Adds new pills or fills in what was missing (strength / quantity) of one already on the list */

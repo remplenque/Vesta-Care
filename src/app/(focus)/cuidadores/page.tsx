@@ -12,6 +12,7 @@ import { normalize } from "@/lib/mateo/safety";
 import { displayMobile, spokenMobile, toChileanMobile } from "@/lib/phone";
 import { getSupabase } from "@/lib/supabase/client";
 import { firstName } from "@/lib/time";
+import { HOME_PATH } from "@/lib/nav";
 
 // After choosing the companion: a guided, spoken conversation to add caregivers (emergency_contacts).
 // ask → phone → name → confirm → saved ("¿otra persona?") → … → the app. Every step is spoken by the
@@ -97,7 +98,7 @@ function Guide() {
   const finish = useCallback(() => {
     guide.quiet();
     const target = params.get("next");
-    const next = target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio";
+    const next = target && target.startsWith("/") && !target.startsWith("//") ? target : HOME_PATH;
     router.replace(`/mi-ficha?next=${encodeURIComponent(next)}`);
   }, [guide, params, router]);
 

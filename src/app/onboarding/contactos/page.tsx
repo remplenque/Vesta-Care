@@ -8,6 +8,7 @@ import { Button, Icon, Sheet } from "@/components/ui";
 import type { Contact } from "@/lib/data";
 import { getSupabase } from "@/lib/supabase/client";
 import { initials } from "@/lib/time";
+import { HOME_PATH } from "@/lib/nav";
 
 const field = "min-h-14 w-full rounded-[14px] border-2 border-line-strong bg-surface px-3 text-body-lg focus:border-primary";
 
@@ -139,7 +140,7 @@ export default function Contacts() {
       </div>
 
       <div className="mt-auto p-6">
-        <Button onClick={() => router.push("/inicio")}>Terminar</Button>
+        <Button onClick={() => router.push(HOME_PATH)}>Terminar</Button>
       </div>
 
       {removing && (

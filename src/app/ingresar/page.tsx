@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
 import { BackButton, Brand, Button, SimulatedNote } from "@/components/ui";
 import { toChileanMobile } from "@/lib/phone";
+import { HOME_PATH } from "@/lib/nav";
 
 // 01 · Login with a mobile number (demo: no SMS code, see /api/auth/phone). After entering,
 // the person chooses their companion (/acompanante) and then continues where they were going.
@@ -48,7 +49,7 @@ function LoginForm() {
   }
 
   function goOn() {
-    const next = params.get("next") || "/inicio";
+    const next = params.get("next") || HOME_PATH;
     router.replace(`/acompanante?next=${encodeURIComponent(next)}`);
     router.refresh();
   }

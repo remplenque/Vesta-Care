@@ -89,14 +89,14 @@ Simulador ──► ingest_reading / ingest_bp ──► readings
 │   ├── proxy.ts               ← sesión de Supabase + rutas protegidas (Next 16: ex-middleware)
 │   ├── app/
 │   │   ├── bienvenida, ingresar (celular), onboarding/{ficha,confirmar,contactos}   ← 01a–01d
-│   │   ├── (app)/{inicio,pastillero,mateo,modulos}   ← 02, 04, 06, 07 (con barra inferior)
-│   │   ├── (focus)/{modulos/[id],alerta/[id],acompanante,como-seguir,cuidadores,mi-ficha,mis-remedios} ← 03, 05, 05b · tras entrar, guiado por voz o por chat (hooks/useGuide): acompañante → cómo seguir (voz/chat) → cuidadores → ficha/enfermedades → remedios
+│   │   ├── (app)/{mateo,inicio,calendario,pastillero,modulos,modulos/[id]} ← 06 = inicio real (acompañante) · 02 resumen · calendario (semana/mes) · 04 · 07 configuración · 03. Arriba: barra de módulos (estado de un vistazo, se despliega con la lista + configuración). Abajo, siempre en este orden: pánico (rojo, con confirmación → módulo sos) · resumen · calendario · acompañante (botón redondo grande: micrófono en /mateo, su cara en el resto)
+│   │   ├── (focus)/{alerta/[id],acompanante,como-seguir,cuidadores,mi-ficha,mis-remedios} ← 05, 05b, sin barra · tras entrar, guiado por voz o por chat (hooks/useGuide): acompañante → cómo seguir (voz/chat) → cuidadores → ficha/enfermedades → remedios
 │   │   ├── c/[token]          ← 08 vista del contacto (solo lectura, vía get_contact_view)
 │   │   ├── demo, demo/whatsapp ← 10 panel de escenarios con 3 usuarios simulados · 09 WhatsApp simulado
 │   │   └── api/{mateo,tts,auth/{phone,demo},conditions/extract,medications/extract,ficha/extract,demo/{reset,simulate,state}} ← Mateo (Claude) · voz ElevenLabs · login por celular (demo, sin SMS) + botón temporal "Entrar como Luis" · agentes que extraen enfermedades y remedios de lo dicho · stub de ficha (P3) · operación del demo (clave de servicio)
-│   ├── components/            ← ui.tsx (Button, StatusBadge…), ModuleCard, CareProvider, Mascot (caras de Mateo/Emilia)
-│   ├── hooks/                 ← useSpeech (micrófono), useCompanionVoice (ElevenLabs + caché para "Repetir")
-│   └── lib/                   ← rules (espejo de evaluate_level), vitals, pillbox, time, copy · mateo/ (prompt, contexto, filtros, tts) · personas + simulator (generadores por módulo) + demo-server (solo servidor)
+│   ├── components/            ← ui.tsx (Button, StatusBadge…), ModuleCard, CareProvider, Mascot (caras de Mateo/Emilia), ModulesBar, BottomNav, PanicButton
+│   ├── hooks/                 ← useSpeech (micrófono), useCompanionVoice (ElevenLabs + caché para "Repetir"), useTalk (botón de la barra ↔ micrófono de /mateo)
+│   └── lib/                   ← rules (espejo de evaluate_level), vitals, pillbox, time, copy, nav (rutas: inicio = /mateo), calendar (días, remedios y alertas por semana/mes) · mateo/ (prompt, contexto, filtros, tts) · personas + simulator (generadores por módulo) + demo-server (solo servidor)
 ├── legacy/                    ← solo lectura · legacy/README.md
 │   ├── Mateo-main/            ← agente Mateo original (Python, 2025)
 │   └── vesta-v3/              ← scaffold de la v3 descartada

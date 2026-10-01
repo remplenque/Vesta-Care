@@ -9,6 +9,7 @@ import { useCompanionVoice } from "@/hooks/useCompanionVoice";
 import { saveMode, type GuideMode } from "@/hooks/useGuide";
 import type { Persona } from "@/lib/mateo/prompt";
 import { firstName } from "@/lib/time";
+import { HOME_PATH } from "@/lib/nav";
 
 // Right after choosing the companion, its own screen: how to do the rest of the getting-to-know-you
 // steps. "voz" = hands-free (it speaks, then listens); "chat" = written, silent unless asked.
@@ -55,7 +56,7 @@ function Chooser() {
     voice.stop();
     saveMode(mode);
     const target = params.get("next");
-    const next = target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio";
+    const next = target && target.startsWith("/") && !target.startsWith("//") ? target : HOME_PATH;
     router.replace(`/cuidadores?next=${encodeURIComponent(next)}`);
   }
 

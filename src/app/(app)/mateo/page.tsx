@@ -11,6 +11,7 @@ import type { ChatMessage } from "@/lib/data";
 import { PERSONAS, type Persona } from "@/lib/mateo/prompt";
 import { getSupabase } from "@/lib/supabase/client";
 import { firstName } from "@/lib/time";
+import { useAnnounceListening, useTalkRequest } from "@/hooks/useTalk";
 
 // 06 · Chat with the companion. The face is the mic (single tap, ACCESSIBILITY §6); one message
 // at a time in a fixed-height bubble that scrolls inside with a "Deslice para leer más" hint
@@ -44,11 +45,11 @@ function Chat() {
   const [suggestions, setSuggestions] = useState<string[]>(START);
   const [thinking, setThinking] = useState(false);
   const [chatting, setChatting] = useState(false);
-  const [keyboard, setKeyboard] = useState(false);
   const [draft, setDraft] = useState("");
   const [more, setMore] = useState(false);
   const textBox = useRef<HTMLDivElement>(null);
   const autoStarted = useRef(false);
+  const input = useRef<HTMLInputElement>(null);
 
   const name = firstName(data?.profile?.full_name);
   const hello = `¡Hola${name ? `, ${name}` : ""}! Soy ${persona}, qué alegría que conversemos. Tóqueme para hablar.`;
@@ -127,7 +128,6 @@ function Chat() {
     }
   }, [params, speech]);
 
-  const typingMode = keyboard || !speech.supported;
   const contact = data?.contacts.find((c) => c.phone);
   const state: MascotState = speech.listening ? "listening" : thinking ? "thinking" : voice.speaking ? "speaking" : "idle";
   const status = speech.listening
@@ -146,11 +146,15 @@ function Chat() {
 
   function tapFace() {
     if (thinking) return;
-    if (!speech.supported) return setKeyboard(true);
+    if (!speech.supported) return input.current?.focus();
     if (speech.listening) return speech.stop();
     voice.stop();
     speech.start();
   }
+
+  // The bottom bar's round talk button does the same as tapping the face (hooks/useTalk.ts)
+  useTalkRequest(tapFace);
+  useAnnounceListening(speech.listening);
 
   function choose(p: Persona) {
     if (p === persona) return;
@@ -173,7 +177,7 @@ function Chat() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-88px-env(safe-area-inset-bottom))] flex-col overflow-hidden">
+    <div className="flex h-[calc(100dvh-var(--top-h)-var(--nav-h)-env(safe-area-inset-bottom))] flex-col overflow-hidden">
       <header className="flex shrink-0 items-center justify-between gap-3 px-5 pt-5">
         <span className="text-body font-bold text-ink-muted">Su acompañante</span>
         <div role="group" aria-label="Con quién quiere conversar" className="flex rounded-full border-2 border-line-strong bg-surface p-1">
@@ -258,32 +262,19 @@ function Chat() {
       </div>
 
       <div className="flex shrink-0 items-center gap-3 border-t border-line bg-surface px-5 py-3">
-        {typingMode ? (
-          <form onSubmit={submit} className="flex flex-1 items-center gap-3">
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Escriba aquí"
-              aria-label="Escriba su mensaje"
-              className="min-h-14 min-w-0 flex-1 rounded-btn border-2 border-line-strong bg-surface px-4 text-body-lg focus:border-primary"
-            />
-            <button type="submit" aria-label="Enviar" className="flex min-h-14 min-w-14 cursor-pointer items-center justify-center rounded-btn bg-primary text-white">
-              <Icon name="send" size="1.6rem" />
-            </button>
-          </form>
-        ) : (
-          <span className="flex-1 text-body text-ink-muted">También puede escribir</span>
-        )}
-        {speech.supported && (
-          <button
-            type="button"
-            onClick={() => setKeyboard((k) => !k)}
-            className="flex min-h-14 min-w-[72px] cursor-pointer flex-col items-center justify-center gap-0.5 text-small font-bold text-primary"
-          >
-            <Icon name={keyboard ? "mic" : "keyboard"} size="1.75rem" />
-            {keyboard ? "Hablar" : "Escribir"}
+        <form onSubmit={submit} className="flex min-w-0 flex-1 items-center gap-3">
+          <input
+            ref={input}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Escriba aquí"
+            aria-label="Escriba su mensaje"
+            className="min-h-14 min-w-0 flex-1 rounded-btn border-2 border-line-strong bg-surface px-4 text-body-lg focus:border-primary"
+          />
+          <button type="submit" aria-label="Enviar" className="flex min-h-14 min-w-14 cursor-pointer items-center justify-center rounded-btn bg-primary text-white">
+            <Icon name="send" size="1.6rem" />
           </button>
-        )}
+        </form>
       </div>
     </div>
   );

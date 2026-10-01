@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { HOME_PATH } from "@/lib/nav";
 
-// Entry point: welcome → onboarding (no confirmed modules yet) → home
+// Entry point: welcome → onboarding (no confirmed modules yet) → home (the companion screen)
 export default async function Root() {
   const supabase = await getServerSupabase();
   const {
@@ -15,5 +16,5 @@ export default async function Root() {
     .eq("user_id", user.id)
     .eq("confirmed", true);
 
-  redirect(count ? "/inicio" : "/onboarding/ficha");
+  redirect(count ? HOME_PATH : "/onboarding/ficha");
 }

@@ -156,15 +156,6 @@ export default function Home() {
         )}
       </div>
 
-      <div className="sticky bottom-[96px] z-20 px-6 pt-6">
-        <Link
-          href="/mateo?voz=1"
-          className="flex min-h-[68px] items-center justify-center gap-3 rounded-full bg-primary text-body-lg font-bold text-white shadow-float active:bg-primary-hover"
-        >
-          <Icon name="mic" fill size="2rem" />
-          Hablar con Mateo
-        </Link>
-      </div>
     </div>
   );
 }

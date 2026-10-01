@@ -71,6 +71,15 @@
   --shadow-toast: 0 10px 30px rgb(31 27 22 / 0.3);
 }
 
+/* Heights of the app bars (ModulesBar on top, BottomNav below). In rem so they grow with the
+   text size; full-height screens such as /mateo subtract both. --nav-h includes the space the
+   round talk button rises above the bottom bar */
+:root {
+  --top-h: 4.5rem;
+  --nav-h: 8.5rem;
+  --nav-rise: 2rem;
+}
+
 /* Text-size setting (docs/ACCESSIBILITY.md §3): percentages keep the browser setting */
 html {
   font-size: 100%;
@@ -80,6 +89,10 @@ html[data-text-scale="grande"] {
 }
 html[data-text-scale="muy_grande"] {
   font-size: 150%;
+}
+/* Decorative extras that give way at "Muy grande" so the text keeps its room (ModulesBar icons) */
+html[data-text-scale="muy_grande"] .hide-on-largest-text {
+  display: none;
 }
 
 body {
