@@ -33,10 +33,10 @@ const DEMO: [number, string, string, string | null, AgendaKind, string | null][]
   [1, "16:00", "Taller de memoria", "Centro comunitario (BondUP)", "actividad", null],
   [2, "11:00", "Café con los amigos del barrio", "Café Colonia, Av. Providencia 1980", "social", "Le toca invitar a don Héctor"],
   [3, "12:00", "Retirar remedios en la farmacia", "Farmacia del consultorio", "tramite", "Losartán y Metformina del mes"],
-  [4, "13:00", "Almuerzo con Andrés y los nietos", "En casa", "familia", "Andrés trae empanadas"],
+  [4, "13:00", "Almuerzo con Baptiste y los nietos", "En casa", "familia", "Baptiste trae empanadas"],
   [5, "09:30", "Ir a la feria", "Feria de calle Santa Isabel", "tramite", null],
   [6, "09:00", "Caminata en grupo por el parque", "Parque Inés de Suárez (BondUP)", "actividad", "Llevar agua y gorro"],
-  [6, "18:00", "Cumpleaños de la nieta Sofía", "Casa de Andrés", "familia", "Cumple 8 años"],
+  [6, "18:00", "Cumpleaños de la nieta Sofía", "Casa de Baptiste", "familia", "Cumple 8 años"],
   [8, "08:00", "Exámenes de sangre", "Laboratorio del CESFAM", "salud", "Ir en ayunas"],
   [9, "17:00", "Bingo solidario de la junta de vecinos", "Sede vecinal", "social", null],
 ];

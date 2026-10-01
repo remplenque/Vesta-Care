@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase/client";
 import { firstName } from "@/lib/time";
 import { useCare } from "./CareProvider";
-import { Button, Icon, Sheet, SimulatedNote } from "./ui";
+import { Button, Icon, Sheet } from "./ui";
+import { savedPersona } from "./CompanionPrompt";
+import { emergency } from "@/lib/alarm";
 
 // Panic button, always visible on the left of the bottom bar. Asks first (docs/ACCESSIBILITY.md
 // §6: confirmation with buttons that say the action) so a stray tap never raises an alarm.
@@ -36,6 +38,15 @@ export function PanicButton() {
   }, [asking, sending]);
 
   async function askForHelp() {
+    // Sound first, from the tap itself (browsers only allow audio after a gesture): a siren, then
+    // the companion says out loud who is being told. Keeps playing through the jump to the alert.
+    const person = firstName(data?.profile?.full_name);
+    emergency(
+      names.length
+        ? `${person ? `${person}, ` : ""}ya pedí ayuda. Estoy avisando ahora a ${joinNames(names)}. Si es grave, llame al 131.`
+        : `${person ? `${person}, ` : ""}ya pedí ayuda. Si es grave, llame al 131.`,
+      savedPersona(),
+    );
     setSending(true);
     setFailed(false);
     const supabase = getSupabase();
@@ -92,14 +103,13 @@ export function PanicButton() {
               ? `Avisaré de inmediato a ${joinNames(names)} y verán cómo está.`
               : "Todavía no tiene contactos de emergencia. Si es urgente, llame al 131."}
           </p>
-          <SimulatedNote>WhatsApp simulado: no se envía ningún mensaje real</SimulatedNote>
           {failed && (
             <p role="alert" className="rounded-btn bg-warn-soft p-4 text-body text-warn">
               No pude avisar. ¿Lo intentamos de nuevo? Si es urgente, llame al 131.
             </p>
           )}
           <Button variant="danger" icon="sos" onClick={askForHelp} disabled={sending}>
-            {sending ? "Avisando…" : "Sí, pedir ayuda"}
+            {sending ? `Avisando a ${joinNames(names) || "sus contactos"}…` : "Sí, pedir ayuda"}
           </Button>
           <a
             href="tel:131"

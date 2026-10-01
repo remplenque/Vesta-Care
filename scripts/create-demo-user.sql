@@ -35,7 +35,7 @@ begin
   update public.profiles set birth_date = '1948-03-12', timezone = 'America/Santiago' where id = v_id;
 
   insert into public.emergency_contacts (user_id, name, relation, phone)
-  values (v_id, 'Andrés Soto', 'hijo', '+56 9 8765 4321');
+  values (v_id, 'Baptiste Soto', 'hijo', '+56 9 8765 4321');
 
   perform public.reset_demo('full', v_id);
 end $$;
