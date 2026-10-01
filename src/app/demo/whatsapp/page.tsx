@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Icon } from "@/components/ui";
+import { BrandSymbol, Icon } from "@/components/ui";
 import { splitContactLink } from "@/lib/demo";
 import { getSupabase } from "@/lib/supabase/client";
 import { dayLabel, formatTime } from "@/lib/time";
@@ -47,7 +47,7 @@ export default function WhatsappSim() {
         <div className="sticky top-0 z-10 bg-[#2B2F36] text-white">
           <div className="flex items-center gap-3 px-4 pt-3 pb-3.5">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-canvas">
-              <span className="h-3.5 w-3.5 rounded-full bg-brand" />
+              <BrandSymbol className="h-7 w-7" />
             </span>
             <div className="flex flex-1 flex-col">
               <span className="text-body font-bold">Vesta Care · Alertas</span>

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Brand, Button, Icon } from "@/components/ui";
 
 // 01a · Bienvenida
@@ -13,9 +14,16 @@ export default function Welcome() {
         style={{ background: "radial-gradient(120% 90% at 85% 10%, #F3DDBF 0%, #EFEAE2 45%, #E8E2D8 100%)" }}
         aria-hidden
       >
-        <div className="absolute top-8 right-8 flex h-28 w-28 items-center justify-center rounded-full bg-brand/90 text-white">
-          <Icon name="home_health" size="3.5rem" />
-        </div>
+        {/* App icon from the brand design: the companion waiting at home */}
+        <Image
+          src="/brand/app-icon-mateo.svg"
+          alt=""
+          width={136}
+          height={136}
+          unoptimized
+          priority
+          className="absolute top-7 right-7 rounded-[22%] shadow-[0_24px_48px_rgba(36,66,92,0.28)]"
+        />
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3 self-start rounded-full bg-surface py-2 pr-4 pl-2 shadow-sm">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ok-soft text-ok">

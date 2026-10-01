@@ -82,6 +82,8 @@ Simulador ──► ingest_reading / ingest_bp ──► readings
 │   ├── ACCESSIBILITY.md       ← reglas de interfaz (vinculante)
 │   ├── OPEN-ISSUES.md         ← bloqueantes y decisiones pendientes
 │   └── archive/v3/            ← spec v3 (Flask + SQLite), DESCARTADA. Solo consulta
+├── design/                  ← marca: «Dirección recomendada» (zip del diseño: ícono de app, símbolo, colores)
+├── public/{brand,icons}/     ← SVG de la marca y PNG de instalación (192, 512, maskable) generados desde design/
 ├── supabase/migrations/       ← ★ esquema, motor de reglas, RPCs, RLS y seed (SQL aplicado)
 ├── scripts/create-demo-user.sql ← crea a Don Luis y su contacto
 ├── src/

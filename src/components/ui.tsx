@@ -128,11 +128,34 @@ export function BackButton({ href, label = "Volver", onClick }: { href?: string;
 
 // ---------------------------------------------------------------- Brand
 
+/** The "house that talks" (design/, "Dirección recomendada"): Vesta Care's symbol and favicon */
+export function BrandSymbol({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="70 80 372 376" aria-hidden className={className}>
+      <path
+        d="M256 92 L424 218 Q432 224 432 236 L432 368 Q432 396 404 396 L220 396 L150 446 L164 396 L108 396 Q80 396 80 368 L80 236 Q80 224 88 218 Z"
+        fill="#C27A2C"
+        stroke="#1E1E1E"
+        strokeWidth="12"
+        strokeLinejoin="round"
+      />
+      <ellipse cx="216" cy="290" rx="13" ry="22" fill="#1E1E1E" />
+      <ellipse cx="296" cy="290" rx="13" ry="22" fill="#1E1E1E" />
+      <circle cx="182" cy="334" r="19" fill="#F28B82" opacity=".7" />
+      <circle cx="330" cy="334" r="19" fill="#F28B82" opacity=".7" />
+      <path d="M208 328 Q256 384 304 328 Q256 348 208 328 Z" fill="#5A2323" stroke="#1E1E1E" strokeWidth="7" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Logo: symbol + "Vesta Care" in ExtraBold, "Care" in Arcilla (brand design) */
 export function Brand({ size = "md" }: { size?: "md" | "sm" }) {
   return (
     <span className="inline-flex items-center gap-2.5">
-      <span className={`rounded-full bg-brand ${size === "md" ? "h-5 w-5" : "h-4 w-4"}`} />
-      <span className={`font-extrabold tracking-tight ${size === "md" ? "text-lead" : "text-body"}`}>Vesta Care</span>
+      <BrandSymbol className={size === "md" ? "h-10 w-10" : "h-8 w-8"} />
+      <span className={`font-extrabold tracking-tight ${size === "md" ? "text-lead" : "text-body-lg"}`}>
+        Vesta <span className="text-brand">Care</span>
+      </span>
     </span>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Icon } from "@/components/ui";
+import { BrandSymbol, Icon } from "@/components/ui";
 import type { PersonaState, TickResult } from "@/lib/demo-server";
 import { DEMO_USER_ID } from "@/lib/demo";
 import { moduleUi, sortModules } from "@/lib/modules";
@@ -219,8 +219,10 @@ export default function ScenarioPanel() {
     <div className="min-h-dvh bg-canvas">
       <header className="flex min-h-[72px] flex-wrap items-center justify-between gap-4 bg-ink px-8 py-3 text-canvas">
         <div className="flex items-center gap-3">
-          <span className="h-4 w-4 rounded-full bg-brand" />
-          <span className="text-body-lg font-extrabold">Vesta Care</span>
+          <BrandSymbol className="h-8 w-8" />
+          <span className="text-body-lg font-extrabold">
+            Vesta <span className="text-brand">Care</span>
+          </span>
           <span className="rounded-md bg-brand px-2.5 py-1 font-mono text-[0.875rem] font-semibold text-ink">MODO DEMO</span>
         </div>
         <nav className="flex flex-wrap gap-5 text-body">
