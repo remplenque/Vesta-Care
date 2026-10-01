@@ -47,11 +47,74 @@ function shift(key: string, days: number) {
   return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
 }
 
-/** The demo person's agenda from today on (empty for any other account) */
-export function agendaFor(userId: string | null | undefined, tz = DEFAULT_TZ, now = new Date()): AgendaEvent[] {
+// ---------------------------------------------------------------- Activities on offer
+// DEMO: activities that partner organisations for older adults publish (Vesta would receive them
+// from those partners). The person hears about them from Mateo or sees them in the Calendario, and
+// signs up with one tap or by saying yes. Synthetic and declared ("Actividades de demostración").
+
+export type Offer = {
+  id: string;
+  day: string;
+  time: string;
+  title: string;
+  place: string;
+  provider: string;
+  price: string;
+  spots: number;
+  kind: AgendaKind;
+};
+
+// [id, days from today, time, title, place, provider, price, spots left, kind]
+const OFFERS: [string, number, string, string, string, string, string, number, AgendaKind][] = [
+  ["tango", 1, "18:00", "Clase de tango para principiantes", "Centro cultural del barrio", "BondUP", "Gratis", 6, "actividad"],
+  ["yoga-silla", 2, "10:00", "Yoga en silla", "Sede del Club del Adulto Mayor", "Club del Adulto Mayor", "Gratis", 4, "actividad"],
+  ["celular", 3, "15:30", "Taller: WhatsApp y videollamadas", "Biblioteca municipal", "Programa municipal Adulto Mayor", "Gratis", 10, "actividad"],
+  ["coro", 4, "17:00", "Ensayo abierto del coro", "Parroquia del barrio", "Club del Adulto Mayor", "Gratis", 8, "social"],
+  ["paseo", 5, "08:30", "Paseo de día a la costa", "Sale desde la plaza principal", "Programa municipal Adulto Mayor", "$5.000", 3, "social"],
+  ["cine", 7, "16:00", "Cine con descuento: matiné", "Centro cultural del barrio", "BondUP", "$2.000", 12, "social"],
+  ["nutricion", 8, "11:00", "Charla: comer rico y sano", "CESFAM, sala de reuniones", "CESFAM", "Gratis", 15, "salud"],
+];
+
+/** Activities on offer from today on (demo account only) */
+export function offersFor(userId: string | null | undefined, tz = DEFAULT_TZ, now = new Date()): Offer[] {
   if (!userId || userId !== process.env.NEXT_PUBLIC_DEMO_USER_ID) return [];
   const today = localDateKey(now, tz);
-  return DEMO.map(([days, time, title, place, kind, note], i) => ({ id: `demo-${i}`, day: shift(today, days), time, title, place, kind, note }));
+  return OFFERS.map(([id, days, time, title, place, provider, price, spots, kind]) => ({ id, day: shift(today, days), time, title, place, provider, price, spots, kind }));
+}
+
+// Sign-ups are kept on the device for now (no events table yet: docs/OPEN-ISSUES.md). The chat
+// sends them to /api/mateo so Mateo knows them too.
+const SIGNUPS_KEY = "vesta.signups";
+
+export function readSignups(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(SIGNUPS_KEY) ?? "[]");
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export function setSignup(offerId: string, on: boolean) {
+  const next = new Set(readSignups());
+  if (on) next.add(offerId);
+  else next.delete(offerId);
+  try {
+    localStorage.setItem(SIGNUPS_KEY, JSON.stringify([...next]));
+    window.dispatchEvent(new Event("vesta-signups"));
+  } catch {}
+  return [...next];
+}
+
+/** The demo person's agenda from today on, plus the activities they signed up for */
+export function agendaFor(userId: string | null | undefined, tz = DEFAULT_TZ, now = new Date(), signups: string[] = []): AgendaEvent[] {
+  if (!userId || userId !== process.env.NEXT_PUBLIC_DEMO_USER_ID) return [];
+  const today = localDateKey(now, tz);
+  const own = DEMO.map(([days, time, title, place, kind, note], i) => ({ id: `demo-${i}`, day: shift(today, days), time, title, place, kind, note }));
+  const joined = offersFor(userId, tz, now)
+    .filter((o) => signups.includes(o.id))
+    .map((o) => ({ id: `offer-${o.id}`, day: o.day, time: o.time, title: o.title, place: o.place, kind: o.kind, note: `Inscripción confirmada · ${o.provider} · ${o.price}` }));
+  return [...own, ...joined];
 }
 
 export function eventsOn(events: AgendaEvent[], day: string) {

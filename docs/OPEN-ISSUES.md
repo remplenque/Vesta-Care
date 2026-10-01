@@ -12,6 +12,7 @@
 | 3 | **"Dosis omitida > 30 min" no tiene disparador** | `ingest_reading` reacciona cuando llega una lectura. Una dosis omitida es una lectura que **no** llega, así que nada la evalúa | Job periódico (Supabase Cron / `pg_cron`) o que el simulador lo emita como escenario explícito. **Parcial:** el simulador de `/demo` emite `dose_missed` para el perfil que olvida remedios (Rosa) mientras está encendido |
 | 4 | **Proveedor de LLM** | En uso: Anthropic `claude-haiku-4-5` vía AI SDK (`/api/mateo`), por créditos disponibles. Falta confirmarlo con el equipo | Cambiar de proveedor = otro paquete `@ai-sdk/*` y su clave; el prompt y los filtros (`src/lib/mateo/`) no cambian. El legacy usa Gemini |
 | 5 | **Roles P1 / P2 / P3** | Sin asignar (acta §10). Tampoco quién presenta y quién opera el demo | Asignar ahora. Baptiste ya trabaja el esquema Supabase |
+| 6 | **Agenda y actividades sin tabla** | La agenda de demo y el catálogo de actividades viven en `src/lib/agenda.ts` (solo la cuenta demo); las inscripciones se guardan en el dispositivo (`localStorage` "vesta.signups") y el chat se las envía a `/api/mateo` | Migración: tabla `agenda_events` (user_id, day, time, title, place, kind, source, offer_id) con RLS por `user_id`, y que Calendario y Mateo lean de ahí |
 
 ## 2. Por confirmar en la base
 

@@ -13,6 +13,7 @@ import { PERSONAS, type Persona } from "@/lib/mateo/prompt";
 import { medLabel, todaySlots } from "@/lib/pillbox";
 import { answerOf } from "@/lib/yesno";
 import { doseMessage, notifyCaregivers, visitMessage } from "@/lib/notify";
+import { readSignups, setSignup } from "@/lib/agenda";
 import { getSupabase } from "@/lib/supabase/client";
 import { firstName } from "@/lib/time";
 import { useAnnounceListening, useTalkRequest } from "@/hooks/useTalk";
@@ -96,6 +97,12 @@ function Chat() {
           if (!error) done.push(`agregué ${[a.name, a.dose].filter(Boolean).join(" ")}`);
           continue;
         }
+        if (a.type === "join_event" || a.type === "leave_event") {
+          setSignup(a.offerId, a.type === "join_event"); // shows up in the Calendario right away
+          const title = a.label.split(": ")[1]?.split(",")[0] ?? "la actividad";
+          done.push(a.type === "join_event" ? `le inscribí en ${title}; ya está en su calendario` : `cancelé su inscripción en ${title}`);
+          continue;
+        }
         if (a.type === "doctor_visit") {
           await notifyCaregivers(supabase, userId, data?.contacts ?? [], visitMessage(name, a.note));
           done.push(`le avisé a ${(data?.contacts ?? []).filter((c) => c.phone).map((c) => firstName(c.name)).join(" y ")}`);
@@ -159,7 +166,7 @@ function Chat() {
         const res = await fetch("/api/mateo", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ persona, messages: next.map((m) => ({ role: m.role, content: m.content ?? "" })) }),
+          body: JSON.stringify({ persona, signups: readSignups(), messages: next.map((m) => ({ role: m.role, content: m.content ?? "" })) }),
         });
         if (!res.ok) throw new Error(String(res.status));
         answer = (await res.json()) as Api;
@@ -170,10 +177,13 @@ function Chat() {
       // (agreed exception to AGENTS.md §3.8 for doses only, with "Deshacer" right there).
       // Adding a pill or removing a mark still waits for "sí".
       if (!yn) {
-        const taken = (answer.actions ?? []).filter((a) => a.type === "dose_taken");
-        setPending((answer.actions ?? []).filter((a) => a.type !== "dose_taken"));
-        if (taken.length) {
-          const { marked } = await runActions(taken);
+        // Applied at once: a dose the person says they took, and an activity they said they want
+        // to go to (or drop) — what they said is the consent. The rest waits for "sí".
+        const AUTO = ["dose_taken", "join_event", "leave_event"];
+        const auto = (answer.actions ?? []).filter((a) => AUTO.includes(a.type));
+        setPending((answer.actions ?? []).filter((a) => !AUTO.includes(a.type)));
+        if (auto.length) {
+          const { marked } = await runActions(auto);
           if (marked.length) {
             setJustMarked(marked);
             answer = { ...answer, reply: "Anotado.", suggestions: START };

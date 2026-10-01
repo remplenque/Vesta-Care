@@ -17,7 +17,8 @@ import {
 import { getServerSupabase } from "@/lib/supabase/server";
 
 // Mateo's chat (acta §6). Contract used by the chat screen:
-//   POST { messages: { role: "user" | "assistant", content: string }[], persona?: "Mateo" | "Emilia" }
+//   POST { messages: { role: "user" | "assistant", content: string }[], persona?: "Mateo" | "Emilia",
+//          signups?: string[] (activities joined on this device) }
 //     → { reply: string, suggestions: string[], actions: MateoAction[], fallback: boolean }
 // actions are only PROPOSALS (validated against the person's data): the chat asks for confirmation
 // and the app writes them with the user's session. See src/lib/mateo/actions.ts.
@@ -37,7 +38,7 @@ const schema = z.object({
   suggestions: z.array(z.string()),
   actions: z.array(
     z.object({
-      type: z.enum(["dose_taken", "dose_not_taken", "add_medication", "doctor_visit"]),
+      type: z.enum(["dose_taken", "dose_not_taken", "add_medication", "doctor_visit", "join_event", "leave_event"]),
       ref: z.string().nullable(),
       note: z.string().nullable(),
       name: z.string().nullable(),
@@ -97,7 +98,8 @@ function withState(messages: Msg[], ctx: unknown): Msg[] {
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as { messages?: Msg[]; persona?: string };
+  const body = (await request.json().catch(() => ({}))) as { messages?: Msg[]; persona?: string; signups?: string[] };
+  const signups = Array.isArray(body.signups) ? body.signups.filter((x) => typeof x === "string").slice(0, 30) : [];
   const persona: Persona = PERSONAS.includes(body.persona as Persona) ? (body.persona as Persona) : "Mateo";
   const messages = (body.messages ?? [])
     .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
@@ -110,7 +112,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const ctx = mateoContext(data);
+  const ctx = mateoContext(data, signups);
   const name = ctx.persona.nombre ?? "";
 
   if (isEmergency(last)) {
@@ -147,7 +149,7 @@ export async function POST(request: Request) {
       maxRetries: 0,
       timeout: 10_000, // voice: a long wait feels broken, so fail fast and fall back
     });
-    const actions = validateActions(output.actions, data, data?.profile?.timezone ?? undefined);
+    const actions = validateActions(output.actions, data, data?.profile?.timezone ?? undefined, signups);
     if (output.actions.length !== actions.length) console.warn("[mateo] dropped proposals:", JSON.stringify(output.actions));
     // "¿Se la tomó?" is fine to ask now: the app records a dose only when the person confirms it
     const reply = actions.length ? output.reply : stripIngestionClaims(output.reply, name);

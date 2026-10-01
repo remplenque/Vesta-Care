@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScreenSkeleton, useCare } from "@/components/CareProvider";
 import { Icon, SimulatedNote, StatusBadge } from "@/components/ui";
 import {
@@ -28,7 +28,8 @@ import { medLabel } from "@/lib/pillbox";
 import { STATUS } from "@/lib/status";
 import { getSupabase } from "@/lib/supabase/client";
 import { formatTime, localDateKey } from "@/lib/time";
-import { AGENDA_ICON, agendaFor, eventsOn } from "@/lib/agenda";
+import { AGENDA_ICON, agendaFor, eventsOn, offersFor, setSignup } from "@/lib/agenda";
+import { useSignups } from "@/hooks/useSignups";
 
 // Calendario: the person's week (default) or month. Week = one row per day that opens to show the
 // remedies of that day, the measurements and the alerts. Month = one row per week with a mark per
@@ -65,6 +66,22 @@ export default function CalendarPage() {
   const first = weeks[0][0];
   const last = weeks.at(-1)!.at(-1)!;
   const rangeKey = `${first}_${last}`;
+
+  // Opening the calendar lands on today (its row is already open): scroll it into view once
+  const centered = useRef(false);
+  const loaded = range?.key === rangeKey;
+  useEffect(() => {
+    if (!loaded || !data || centered.current || mode !== "week") return;
+    // After the rows render, and after Next's own scroll-to-top on navigation (it would cancel a
+    // smooth scroll), jump to today's row. Counted only once the row exists.
+    const id = setTimeout(() => {
+      const row = document.getElementById(`fila-${today}`);
+      if (!row) return;
+      centered.current = true;
+      row.scrollIntoView({ behavior: "auto", block: "start" });
+    }, 350);
+    return () => clearTimeout(id);
+  }, [data, loaded, mode, today]);
 
   useEffect(() => {
     let cancelled = false;
@@ -178,8 +195,61 @@ export default function CalendarPage() {
         <MonthView weeks={weeks} byKey={byKey} anchor={anchor} onOpenWeek={openWeek} />
       )}
 
+      <OffersSection />
+
       <Legend />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------- Activities on offer
+
+function OffersSection() {
+  const { userId, tz } = useCare();
+  const signups = useSignups();
+  const offers = offersFor(userId, tz);
+  if (!offers.length) return null;
+  return (
+    <section aria-label="Actividades para usted" className="flex flex-col gap-3">
+      <h2 className="flex items-center gap-2 text-title font-extrabold">
+        <Icon name="celebration" size="1.8rem" className="text-primary" />
+        Actividades para usted
+      </h2>
+      <p className="text-body text-ink-muted">De organizaciones para personas mayores. Inscríbase con un toque y queda en su calendario.</p>
+      <ul className="flex flex-col gap-3">
+        {offers.map((o) => {
+          const joined = signups.includes(o.id);
+          return (
+            <li key={o.id} className={`flex flex-col gap-2 rounded-card border-2 bg-surface p-4 ${joined ? "border-ok" : "border-line"}`}>
+              <span className="flex items-start gap-3">
+                <Icon name={AGENDA_ICON[o.kind]} size="1.6rem" className="mt-0.5 text-primary" />
+                <span className="flex flex-col">
+                  <span className="text-body-lg font-extrabold">{o.title}</span>
+                  <span className="text-body text-ink-muted">
+                    {longDay(o.day, tz)} · {o.time}
+                  </span>
+                  <span className="text-body text-ink-muted">{o.place}</span>
+                  <span className="text-body text-ink-muted">
+                    {o.provider} · {o.price} · {o.spots} cupos
+                  </span>
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSignup(o.id, !joined)}
+                className={`flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-btn px-4 text-body-lg font-bold ${
+                  joined ? "border-2 border-ok bg-ok-soft text-ok" : "bg-primary text-white"
+                }`}
+              >
+                <Icon name={joined ? "check_circle" : "add_circle"} fill size="1.5rem" />
+                {joined ? "Inscripción lista · tocar para cancelar" : "Inscribirme"}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <SimulatedNote>Actividades de demostración</SimulatedNote>
+    </section>
   );
 }
 
@@ -187,13 +257,14 @@ export default function CalendarPage() {
 
 function DayRow({ day, open, onToggle }: { day: CalDay; open: boolean; onToggle: () => void }) {
   const { tz, userId } = useCare();
-  const plans = eventsOn(agendaFor(userId, tz), day.key);
+  const signups = useSignups();
+  const plans = eventsOn(agendaFor(userId, tz, new Date(), signups), day.key);
   const s = DAY_STATUS[day.status];
   const crit = day.alerts.filter((a) => a.level === "critical").length;
   const panelId = `dia-${day.key}`;
 
   return (
-    <li className={`rounded-card border-2 bg-surface ${day.isToday ? "border-primary" : "border-line"}`}>
+    <li id={`fila-${day.key}`} className={`scroll-mt-28 rounded-card border-2 bg-surface ${day.isToday ? "border-primary" : "border-line"}`}>
       <button type="button" aria-expanded={open} aria-controls={panelId} onClick={onToggle} className="flex min-h-[76px] w-full cursor-pointer items-center gap-4 px-4 py-3 text-left">
         <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${s.marker}`}>
           <Icon name={s.icon} fill size="1.75rem" className={s.text} />
@@ -266,7 +337,8 @@ function DayDetail({ day }: { day: CalDay }) {
     };
   }, [day.key, day.isFuture, tz, userId, vitalsKey]);
 
-  const plans = eventsOn(agendaFor(userId, tz), day.key);
+  const signups = useSignups();
+  const plans = eventsOn(agendaFor(userId, tz, new Date(), signups), day.key);
 
   return (
     <div className="flex flex-col gap-4 border-t border-line px-4 pt-4 pb-5">

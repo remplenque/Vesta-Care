@@ -2,7 +2,7 @@ import type { CareData } from "@/lib/data";
 import { moduleUi, sortModules, VITAL_MODULES } from "@/lib/modules";
 import { medLabel, scheduleTimes, todaySlots, type DoseStatus } from "@/lib/pillbox";
 import type { Level } from "@/lib/rules";
-import { agendaFor } from "@/lib/agenda";
+import { agendaFor, offersFor } from "@/lib/agenda";
 import { DEFAULT_TZ, firstName, formatDayTime, formatTime, localDateKey } from "@/lib/time";
 import { daysInRange, rangeLabel, thresholdsFor, vitalSeries } from "@/lib/vitals";
 
@@ -30,7 +30,7 @@ const DOSE_WORDS: Record<DoseStatus, string> = {
   later: "más tarde",
 };
 
-export function mateoContext(data: CareData | null, now = new Date()) {
+export function mateoContext(data: CareData | null, signups: string[] = [], now = new Date()) {
   const tz = data?.profile?.timezone ?? DEFAULT_TZ;
   const today = localDateKey(now, tz);
   const name = firstName(data?.profile?.full_name);
@@ -107,9 +107,14 @@ export function mateoContext(data: CareData | null, now = new Date()) {
   };
 
   // Upcoming activities (demo agenda), with the day said the way people say it
-  const agenda = agendaFor(data?.profile?.id, tz, now)
+  const agenda = agendaFor(data?.profile?.id, tz, now, signups)
     .slice(0, 14)
     .map((e) => ({ cuando: spokenDay(e.day, today0, tz), hora: e.time, que: e.title, donde: e.place, nota: e.note, tipo: e.kind }));
+
+  // Activities partner organisations offer that the person hasn't joined yet (demo catalogue)
+  const disponibles = offersFor(data?.profile?.id, tz, now)
+    .filter((o) => !signups.includes(o.id))
+    .map((o) => ({ id: o.id, cuando: spokenDay(o.day, today0, tz), hora: o.time, que: o.title, donde: o.place, organiza: o.provider, precio: o.price, cupos: o.spots }));
 
   return {
     persona: { nombre: name || null },
@@ -122,6 +127,7 @@ export function mateoContext(data: CareData | null, now = new Date()) {
     ultimos_7_dias: semana,
     remedios_ultimos_7_dias: remediosSemana,
     agenda,
+    actividades_disponibles: disponibles,
     objetivos,
     nota: "Todos los dispositivos son simulados. Apoyo a la decisión, no diagnóstico.",
   };

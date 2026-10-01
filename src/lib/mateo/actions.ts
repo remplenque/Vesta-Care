@@ -1,6 +1,7 @@
 import type { CareData } from "@/lib/data";
 import { medLabel, todaySlots } from "@/lib/pillbox";
 import { DEFAULT_TZ } from "@/lib/time";
+import { offersFor } from "@/lib/agenda";
 import { normalize } from "./safety";
 
 // Changes Mateo can PROPOSE from the chat. The model never writes anything: /api/mateo validates
@@ -12,6 +13,9 @@ import { normalize } from "./safety";
 //                     "Deshacer". The other two still wait for "sí".
 //   dose_not_taken  → removes today's dose_taken record for that dose (same as its "Deshacer")
 //   add_medication  → new row in medications (dose "50 mg · 1 pastilla", schedule.times)
+//   join_event / leave_event → signs up for / cancels an activity on offer (demo catalogue in
+//                     lib/agenda.ts; kept on the device for now). Proposed only after the person
+//                     says they want to go, so the chat applies it at once (cancel in Calendario).
 //   doctor_visit    → tells the caregivers on WhatsApp that the person went to the doctor today
 //                     (a message to other people about their life: always asks first)
 
@@ -19,11 +23,13 @@ export type MateoAction =
   | { type: "dose_taken"; ref: string; label: string }
   | { type: "dose_not_taken"; ref: string; label: string }
   | { type: "add_medication"; name: string; dose: string | null; times: string[]; label: string }
-  | { type: "doctor_visit"; note: string | null; label: string };
+  | { type: "doctor_visit"; note: string | null; label: string }
+  | { type: "join_event"; offerId: string; label: string }
+  | { type: "leave_event"; offerId: string; label: string };
 
 /** Loose shape the model returns (flat, nullable fields: easier for structured output) */
 export type RawAction = {
-  type: "dose_taken" | "dose_not_taken" | "add_medication" | "doctor_visit";
+  type: "dose_taken" | "dose_not_taken" | "add_medication" | "doctor_visit" | "join_event" | "leave_event";
   ref: string | null;
   note?: string | null;
   name: string | null;
@@ -40,8 +46,9 @@ function qty(q: number | null) {
 const HHMM = /^([01]?\d|2[0-3]):[0-5]\d$/;
 
 /** Keeps only proposals that make sense for this person right now; drops the rest silently */
-export function validateActions(raw: RawAction[], data: CareData | null, tz = DEFAULT_TZ): MateoAction[] {
+export function validateActions(raw: RawAction[], data: CareData | null, tz = DEFAULT_TZ, signups: string[] = []): MateoAction[] {
   if (!data) return [];
+  const offers = offersFor(data.profile?.id, tz);
   const slots = todaySlots(data.medications, data.readings, tz);
   const out: MateoAction[] = [];
   for (const a of raw.slice(0, 3)) {
@@ -55,6 +62,17 @@ export function validateActions(raw: RawAction[], data: CareData | null, tz = DE
         type: a.type,
         ref: a.ref!,
         label: `${a.type === "dose_taken" ? "Anotar como tomada" : "Quitar la marca de tomada"}: ${medLabel(slot.medication)} de las ${slot.time}`,
+      });
+    } else if (a.type === "join_event" || a.type === "leave_event") {
+      const offer = offers.find((o) => o.id === a.ref);
+      if (!offer || out.some((o) => "offerId" in o && o.offerId === offer.id)) continue;
+      const joined = signups.includes(offer.id);
+      if (a.type === "join_event" && joined) continue;
+      if (a.type === "leave_event" && !joined) continue;
+      out.push({
+        type: a.type,
+        offerId: offer.id,
+        label: `${a.type === "join_event" ? "Inscribirle en" : "Cancelar su inscripción en"}: ${offer.title}, ${offer.time} (${offer.provider})`,
       });
     } else if (a.type === "doctor_visit") {
       const who = data.contacts.filter((c) => c.phone).map((c) => c.name.split(/\s+/)[0]);
