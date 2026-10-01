@@ -17,9 +17,9 @@ import { firstName } from "@/lib/time";
 //   ask      → photo of the ficha / PDF / "No la tengo"
 //   reading  → upload to Storage (medical-records/{uid}/) + medical_records row + /api/ficha/extract
 //   list     → conditions: what the ficha found (to confirm) + what the person says or types; several
-//   → saves to conditions (source "ficha" | "manual") and continues to the app.
+//   → saves to conditions (source "ficha" | "manual") and continues to /mis-remedios.
 // Nothing extracted is saved without the person seeing it and pressing "Eso es todo" (AGENTS.md §3.8).
-// Medications and thresholds from the ficha still go through /onboarding/confirmar (not done here).
+// The ficha's pills are proposed on /mis-remedios; its thresholds still need /onboarding/confirmar.
 
 type Step = "ask" | "reading" | "list";
 type Item = { id?: string; name: string; source: "ficha" | "manual" };
@@ -60,6 +60,7 @@ function Guide() {
   const [demoReading, setDemoReading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [recordId, setRecordId] = useState<string | null>(null);
   const photo = useRef<HTMLInputElement>(null);
   const pdf = useRef<HTMLInputElement>(null);
   const textInput = useRef<HTMLInputElement>(null);
@@ -102,11 +103,13 @@ function Guide() {
     return () => clearInterval(t);
   }, [step]);
 
+  // Next guided step: the pills (/mis-remedios); the ficha, if any, travels along to propose its pills
   const finish = useCallback(() => {
     voice.stop();
     const target = params.get("next");
-    router.replace(target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio");
-  }, [params, router, voice]);
+    const next = target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio";
+    router.replace(`/mis-remedios?next=${encodeURIComponent(next)}${recordId ? `&record=${recordId}` : ""}`);
+  }, [params, recordId, router, voice]);
 
   function toList(intro?: string) {
     setStep("list");
@@ -128,6 +131,7 @@ function Guide() {
     const up = await supabase.storage.from("medical-records").upload(path, f, { contentType: f.type || "application/octet-stream" });
     const rec = up.error ? null : await supabase.from("medical_records").insert({ user_id: userId, file_path: path }).select("id").single();
     if (!rec || rec.error) return toList("No pude leer la ficha. No se preocupe: cuénteme usted, ¿qué enfermedades o condiciones tiene?");
+    setRecordId(rec.data.id);
 
     try {
       const res = await fetch("/api/ficha/extract", {
@@ -190,7 +194,7 @@ function Guide() {
     const ins = added.length ? await supabase.from("conditions").insert(added.map((a) => ({ user_id: userId, name: a.name, source: a.source }))) : { error: null };
     setSaving(false);
     if (del.error || ins.error) return say("No pude guardarlo. ¿Lo intentamos de nuevo?");
-    say(items.length ? "Listo, quedó anotado. Vamos a la aplicación." : "Muy bien. Vamos a la aplicación.");
+    say(items.length ? "Listo, quedó anotado. Ahora sigamos con sus remedios." : "Muy bien. Ahora sigamos con sus remedios.");
     setTimeout(finish, 1800);
   }
 
