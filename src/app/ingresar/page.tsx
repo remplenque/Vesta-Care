@@ -44,9 +44,26 @@ function LoginForm() {
       setBusy(false);
       return;
     }
+    goOn();
+  }
+
+  function goOn() {
     const next = params.get("next") || "/inicio";
     router.replace(`/acompanante?next=${encodeURIComponent(next)}`);
     router.refresh();
+  }
+
+  // TEMPORARY: one tap into Luis's demo account (/api/auth/demo). Remove with that route
+  async function enterAsDemo() {
+    setBusy(true);
+    setError(null);
+    const res = await fetch("/api/auth/demo", { method: "POST" }).catch(() => null);
+    if (!res?.ok) {
+      setError(GENERIC);
+      setBusy(false);
+      return;
+    }
+    goOn();
   }
 
   return (
@@ -74,9 +91,12 @@ function LoginForm() {
         </p>
       )}
       <SimulatedNote>Versión de demostración: entra sin código por SMS</SimulatedNote>
-      <div className="mt-auto pb-6">
+      <div className="mt-auto flex flex-col gap-3 pb-6">
         <Button type="submit" disabled={busy}>
           {busy ? "Un momento…" : "Entrar"}
+        </Button>
+        <Button type="button" variant="secondary" icon="science" onClick={enterAsDemo} disabled={busy}>
+          Entrar como Luis (demo)
         </Button>
       </div>
     </form>
