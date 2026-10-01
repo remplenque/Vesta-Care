@@ -178,7 +178,20 @@ export function useSpeechInput(onFinal: (text: string) => void) {
   /** The person taps "Terminar de hablar": deliver right away */
   const stop = useCallback(() => finish(), [finish]);
 
-  return { supported, listening, interim, start, stop };
+  /** Close the mic and throw away whatever it heard (e.g. the companion is about to speak) */
+  const cancel = useCallback(() => {
+    if (!session.current.active) return;
+    session.current.done = true;
+    session.current.active = false;
+    clearTimers();
+    try {
+      rec.current?.abort();
+    } catch {}
+    setListening(false);
+    setInterim("");
+  }, []);
+
+  return { supported, listening, interim, start, stop, cancel };
 }
 
 /** Text-to-speech at 0.9 speed (docs/ACCESSIBILITY.md §7). Never autoplays on load */

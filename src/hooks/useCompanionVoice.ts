@@ -62,31 +62,50 @@ export function useCompanionVoice() {
     setSpeaking(false);
   }, []);
 
-  const playUrl = useCallback((url: string, text: string) => {
-    const p = player.current;
-    if (!p) return;
-    p.src = url;
-    p.currentTime = 0;
-    p.onplaying = () => {
-      setBlocked(false);
-      setSpeaking(true);
-    };
-    p.onended = () => setSpeaking(false);
-    p.play().catch((err: unknown) => {
+  /** onDone fires only when this utterance really finished (ended / failed), never when it was
+   *  stopped or replaced by a newer one: callers use it to open the mic without hearing themselves */
+  const doneFor = useCallback((mine: number, onDone?: () => void) => {
+    return () => {
+      if (mine !== token.current) return;
       setSpeaking(false);
-      if (err instanceof DOMException && err.name === "NotAllowedError") setBlocked(true);
-      else browserSpeak(text, () => setSpeaking(true), () => setSpeaking(false));
-    });
+      onDone?.();
+    };
   }, []);
 
+  const playUrl = useCallback(
+    (url: string, text: string, onDone?: () => void) => {
+      const p = player.current;
+      if (!p) return;
+      const mine = token.current;
+      const done = doneFor(mine, onDone);
+      p.src = url;
+      p.currentTime = 0;
+      p.onplaying = () => {
+        if (mine !== token.current) return;
+        setBlocked(false);
+        setSpeaking(true);
+      };
+      p.onended = done;
+      p.play().catch((err: unknown) => {
+        if (mine !== token.current) return;
+        setSpeaking(false);
+        if (err instanceof DOMException && err.name === "NotAllowedError") setBlocked(true);
+        else browserSpeak(text, () => mine === token.current && setSpeaking(true), done);
+      });
+    },
+    [doneFor],
+  );
+
   const speak = useCallback(
-    async (text: string, voice: string) => {
+    async (text: string, voice: string, onDone?: () => void) => {
       stop();
       const mine = token.current;
+      const done = doneFor(mine, onDone);
+      const onStart = () => mine === token.current && setSpeaking(true);
       const useTts = ttsOk.current && natural.includes(voice);
       const key = `${voice}|${text}`;
       last.current = { text, key: useTts ? key : null };
-      if (!useTts) return browserSpeak(text, () => setSpeaking(true), () => setSpeaking(false));
+      if (!useTts) return browserSpeak(text, onStart, done);
 
       let url = cache.current.get(key);
       if (!url) {
@@ -104,12 +123,12 @@ export function useCompanionVoice() {
           if (mine !== token.current) return;
           ttsOk.current = false; // don't pay the failed request on every reply; reload to retry
           last.current.key = null;
-          return browserSpeak(text, () => setSpeaking(true), () => setSpeaking(false));
+          return browserSpeak(text, onStart, done);
         }
       }
-      if (mine === token.current) playUrl(url, text);
+      if (mine === token.current) playUrl(url, text, onDone);
     },
-    [natural, playUrl, stop],
+    [doneFor, natural, playUrl, stop],
   );
 
   /** Replays the last thing said with the same recording (no new request) */
