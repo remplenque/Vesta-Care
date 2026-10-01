@@ -90,7 +90,7 @@ Simulador ──► ingest_reading / ingest_bp ──► readings
 │   ├── app/
 │   │   ├── bienvenida, ingresar (celular), onboarding/{ficha,confirmar,contactos}   ← 01a–01d
 │   │   ├── (app)/{inicio,pastillero,mateo,modulos}   ← 02, 04, 06, 07 (con barra inferior)
-│   │   ├── (focus)/{modulos/[id],alerta/[id],acompanante,cuidadores,mi-ficha,mis-remedios} ← 03, 05, 05b · tras entrar, guiado por voz o por chat (hooks/useGuide): acompañante → cuidadores → ficha/enfermedades → remedios
+│   │   ├── (focus)/{modulos/[id],alerta/[id],acompanante,como-seguir,cuidadores,mi-ficha,mis-remedios} ← 03, 05, 05b · tras entrar, guiado por voz o por chat (hooks/useGuide): acompañante → cómo seguir (voz/chat) → cuidadores → ficha/enfermedades → remedios
 │   │   ├── c/[token]          ← 08 vista del contacto (solo lectura, vía get_contact_view)
 │   │   ├── demo, demo/whatsapp ← 10 panel de escenarios · 09 WhatsApp simulado
 │   │   └── api/{mateo,tts,auth/phone,conditions/extract,medications/extract,ficha/extract,demo/reset} ← Mateo (Claude) · voz ElevenLabs · login por celular (demo, sin SMS) · agentes que extraen enfermedades y remedios de lo dicho · stub de ficha (P3) · reset del demo

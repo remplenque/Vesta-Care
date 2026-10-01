@@ -6,31 +6,19 @@ import { useCare } from "@/components/CareProvider";
 import { MASCOT_HALO, MascotFace } from "@/components/Mascot";
 import { Brand, Button, Icon } from "@/components/ui";
 import { useCompanionVoice } from "@/hooks/useCompanionVoice";
-import { saveMode, type GuideMode } from "@/hooks/useGuide";
 import { PERSONAS, type Persona } from "@/lib/mateo/prompt";
 import { firstName } from "@/lib/time";
 
 // After login: the person picks who keeps them company (Mateo or Emilia), sees the face and hears
 // the voice before deciding. One tap on a card = choose + hear it; one tap on "Seguir" = done.
 // The choice is per device (localStorage "vesta.persona", same key the /mateo tab reads).
-// Then: how to do the rest of the getting-to-know-you steps, "voz" (hands-free: it speaks and then
-// listens) or "chat" (written, silent unless asked). Two different paths, see hooks/useGuide.ts.
+// Then /como-seguir asks how to do the rest of the steps: by voice or by chat.
 
 const PERSONA_KEY = "vesta.persona";
 const BLURB: Record<Persona, string> = {
   Mateo: "Tranquilo y cercano",
   Emilia: "Cálida y alegre",
 };
-const MODES: { id: GuideMode; icon: string; title: string; blurb: string }[] = [
-  { id: "voz", icon: "record_voice_over", title: "Hablando", blurb: "Le pregunto en voz alta y usted me responde con su voz" },
-  { id: "chat", icon: "chat", title: "Escribiendo", blurb: "Como un chat: leo y escribo, sin sonido" },
-];
-
-function canListen() {
-  if (typeof window === "undefined") return false;
-  const w = window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown };
-  return Boolean(w.SpeechRecognition ?? w.webkitSpeechRecognition);
-}
 
 function Chooser() {
   const router = useRouter();
@@ -46,30 +34,28 @@ function Chooser() {
     }
   });
   const [testing, setTesting] = useState<Persona | null>(null);
-  const [mode, setMode] = useState<GuideMode | null>(null);
-  const [voiceOk] = useState(canListen);
+
   const name = firstName(data?.profile?.full_name);
 
   function pick(p: Persona) {
     setChosen(p);
     setTesting(p);
     voice.speak(
-      `¡Hola${name ? `, ${name}` : ""}! Soy ${p}. Así suena mi voz. Voy a acompañarle cada día. ¿Prefiere que sigamos hablando o escribiendo?`,
+      `¡Hola${name ? `, ${name}` : ""}! Soy ${p}. Así suena mi voz. Voy a acompañarle cada día.`,
       p,
     );
   }
 
   function next() {
-    if (!chosen || !mode) return;
+    if (!chosen) return;
     voice.stop();
     try {
       localStorage.setItem(PERSONA_KEY, chosen);
     } catch {}
-    saveMode(mode);
-    // Next: the guided caregivers step, which then continues to where the person was going
+    // Next: its own screen to choose voice or chat, then the guided steps
     const target = params.get("next");
     const next = target && target.startsWith("/") && !target.startsWith("//") ? target : "/inicio";
-    router.replace(`/cuidadores?next=${encodeURIComponent(next)}`);
+    router.replace(`/como-seguir?next=${encodeURIComponent(next)}`);
   }
 
   return (
@@ -120,42 +106,9 @@ function Chooser() {
         </button>
       )}
 
-      {chosen && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-title font-extrabold">¿Cómo prefiere que sigamos?</h2>
-          <div role="radiogroup" aria-label="Cómo seguir" className="flex flex-col gap-3">
-            {MODES.map((m) => {
-              const disabled = m.id === "voz" && !voiceOk;
-              const on = mode === m.id;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  disabled={disabled}
-                  onClick={() => setMode(m.id)}
-                  className={`flex min-h-[88px] cursor-pointer items-center gap-4 rounded-card border-[3px] bg-surface px-4 py-3 text-left disabled:cursor-default disabled:opacity-60 ${
-                    on ? "border-primary" : "border-line-strong"
-                  }`}
-                >
-                  <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${on ? "bg-primary text-white" : "bg-primary-soft text-primary"}`}>
-                    <Icon name={on ? "check" : m.icon} fill size="1.9rem" />
-                  </span>
-                  <span className="flex flex-col">
-                    <span className="text-lead font-extrabold">{m.title}</span>
-                    <span className="text-body text-ink-muted">{disabled ? "Este navegador no permite hablar. Puede seguir escribiendo." : m.blurb}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       <div className="mt-auto">
-        <Button onClick={next} disabled={!chosen || !mode}>
-          {!chosen ? "Elija a su acompañante" : !mode ? "Elija cómo seguir" : `Seguir con ${chosen}`}
+        <Button onClick={next} disabled={!chosen}>
+          {chosen ? `Seguir con ${chosen}` : "Elija a su acompañante"}
         </Button>
       </div>
     </div>
