@@ -17,15 +17,16 @@ function joinNames(names: string[]) {
   return `${names.slice(0, -1).join(", ")} y ${names.at(-1)}`;
 }
 
-function summaryText(cards: CardModel[], pending: number) {
+function summaryText(cards: CardModel[], missed: number, upcoming: number) {
   const vitals = cards.filter((c) => c.moduleId !== "pillbox" && c.level);
   const out = vitals.filter((c) => c.level !== "ok").map((c) => moduleUi(c.moduleId).short.toLowerCase());
   const inRange = vitals.filter((c) => c.level === "ok").map((c) => `su ${moduleUi(c.moduleId).short.toLowerCase()}`);
   const parts: string[] = [];
   if (out.length) parts.push(`Revise su ${joinNames(out)}: ${out.length > 1 ? "están" : "está"} fuera de su rango.`);
   else if (inRange.length) parts.push(`${joinNames(inRange).replace(/^s/, "S")} ${inRange.length > 1 ? "están" : "está"} en rango.`);
-  if (pending > 0) parts.push(pending === 1 ? "Le queda un remedio por tomar hoy." : `Le quedan ${pending} remedios por tomar hoy.`);
-  else parts.push("Ya registró todos sus remedios de hoy.");
+  if (missed > 0) parts.push(missed === 1 ? "Un remedio de hoy no quedó registrado. ¿Se lo tomó?" : `${missed} remedios de hoy no quedaron registrados. ¿Se los tomó?`);
+  if (upcoming > 0) parts.push(upcoming === 1 ? "Le queda un remedio por tomar hoy." : `Le quedan ${upcoming} remedios por tomar hoy.`);
+  else if (!missed) parts.push("Ya registró todos sus remedios de hoy.");
   return parts.join(" ");
 }
 
@@ -65,7 +66,7 @@ export default function Home() {
         <span className="text-body text-ink-muted">{formatLongDate(now, tz)}</span>
         <h1 className="text-h1 font-extrabold">
           {greeting(now, tz)}
-          {name ? `, don ${name}` : ""}
+          {name ? `, ${name}` : ""}
         </h1>
       </header>
 
@@ -85,7 +86,7 @@ export default function Home() {
         <h2 className="text-title font-bold">{title}</h2>
         <div className="flex items-start gap-3">
           <MateoAvatar />
-          <p className="text-body text-ink-muted">{summaryText(cards, pending)}</p>
+          <p className="text-body text-ink-muted">{summaryText(cards, slots.filter((s) => s.status === "missed").length, slots.filter((s) => s.status === "due" || s.status === "later").length)}</p>
         </div>
       </section>
 

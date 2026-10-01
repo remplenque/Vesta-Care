@@ -4,6 +4,9 @@ import { MISSED_AFTER_MIN, scheduleTimes } from "./pillbox";
 import { localDateKey, zonedTime } from "./time";
 
 // Device simulator (AGENTS.md §3.7: every reading is declared with source = 'simulator').
+// The live loop now runs inside Supabase every 5 s (pg_cron + public.sim_tick, migration
+// 08_device_simulator) with these same personas and ranges, so it works with every tab closed.
+// This module still backs POST /api/demo/simulate for a manual tick.
 // It only produces values. Whether a value becomes an alert, and at which level, is decided by
 // the SQL rules engine on insert (AGENTS.md §3.1), never here.
 

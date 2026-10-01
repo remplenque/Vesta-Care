@@ -161,7 +161,7 @@ export default function AlertScreen() {
         <div className={`mx-4 mt-4 flex items-center gap-3 rounded-btn px-[18px] py-3.5 ${critical ? "bg-white/15" : "bg-sunken"}`}>
           <Icon name="mark_chat_read" fill size="1.75rem" />
           <span className="text-body leading-snug">
-            {notifiedNames.join(", ")} {notifiedNames.length > 1 ? "ya fueron avisados" : "ya fue avisado"} · {formatTime(notified[0].ts, tz)}
+            Ya avisamos a {notifiedNames.join(" y ")} · {formatTime(notified[0].ts, tz)}
           </span>
         </div>
       )}

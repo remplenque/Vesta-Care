@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { loadCareData, type Alert, type CareData } from "@/lib/data";
+import { loadCareData, type Alert, type CareData, type Reading } from "@/lib/data";
 import { getSupabase } from "@/lib/supabase/client";
 import { DEFAULT_TZ } from "@/lib/time";
 
@@ -14,6 +14,9 @@ type CareContext = {
 };
 
 const Ctx = createContext<CareContext | null>(null);
+
+// Same cap as loadCareData: the newest readings only
+const MAX_READINGS = 2000;
 
 export function useCare() {
   const ctx = useContext(Ctx);
@@ -29,6 +32,7 @@ export function CareProvider({ children, followCriticalAlerts = true }: { childr
   const router = useRouter();
   const supabase = getSupabase();
   const [userId, setUserId] = useState<string | null>(null);
+  const [signInAt, setSignInAt] = useState<string>("");
   const [data, setData] = useState<CareData | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -40,7 +44,10 @@ export function CareProvider({ children, followCriticalAlerts = true }: { childr
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) router.replace("/ingresar");
-      else setUserId(user.id);
+      else {
+        setSignInAt(user.last_sign_in_at ?? "");
+        setUserId(user.id);
+      }
     });
   }, [supabase, router]);
 
@@ -67,7 +74,14 @@ export function CareProvider({ children, followCriticalAlerts = true }: { childr
 
     const channel = supabase
       .channel(`care-${userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "readings", filter: `user_id=eq.${userId}` }, scheduleRefresh)
+      // The simulator writes every 5 s: new readings are appended instead of reloading everything
+      .on("postgres_changes", { event: "*", schema: "public", table: "readings", filter: `user_id=eq.${userId}` }, (payload) => {
+        if (payload.eventType !== "INSERT") return scheduleRefresh();
+        const r = payload.new as Reading;
+        setData((d) =>
+          d ? { ...d, readings: [...d.readings.filter((x) => x.id !== r.id), r].sort((a, b) => a.ts.localeCompare(b.ts)).slice(-MAX_READINGS) } : d,
+        );
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "user_modules", filter: `user_id=eq.${userId}` }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "alerts", filter: `user_id=eq.${userId}` }, (payload) => {
         scheduleRefresh();
@@ -95,6 +109,22 @@ export function CareProvider({ children, followCriticalAlerts = true }: { childr
       supabase.removeChannel(channel);
     };
   }, [supabase, userId, router, followCriticalAlerts]);
+
+  // Demo personas (sim_personas in Supabase): opening the app can start Rosa's emergency. Once per
+  // app session, so moving between screens or answering "Estoy bien" never starts another one
+  useEffect(() => {
+    if (!userId || !followCriticalAlerts) return;
+    const key = `vesta:opened:${userId}:${signInAt}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      // private mode: the check may run again; the server refuses to chain emergencies
+    }
+    supabase.rpc("sim_open_session").then(({ data: alertId }) => {
+      if (alertId) router.push(`/alerta/${alertId}`);
+    });
+  }, [supabase, userId, signInAt, followCriticalAlerts, router]);
 
   if (!userId) return null;
   return <Ctx.Provider value={{ userId, data, tz: data?.profile?.timezone ?? DEFAULT_TZ, refresh }}>{children}</Ctx.Provider>;

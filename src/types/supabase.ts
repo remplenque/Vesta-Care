@@ -440,6 +440,33 @@ export type Database = {
           },
         ]
       }
+      sim_personas: {
+        Row: {
+          active: boolean
+          email: string
+          emergency_since: string | null
+          last_tick: string | null
+          persona: string
+          profile: string
+        }
+        Insert: {
+          active?: boolean
+          email: string
+          emergency_since?: string | null
+          last_tick?: string | null
+          persona: string
+          profile: string
+        }
+        Update: {
+          active?: boolean
+          email?: string
+          emergency_since?: string | null
+          last_tick?: string | null
+          persona?: string
+          profile?: string
+        }
+        Relationships: []
+      }
       user_modules: {
         Row: {
           confirmed: boolean
@@ -533,6 +560,26 @@ export type Database = {
       reset_demo: {
         Args: { p_mode: string; p_user_id?: string }
         Returns: Json
+      }
+      sim_compact: { Args: never; Returns: number }
+      sim_open_session: { Args: never; Returns: string }
+      sim_set_active: {
+        Args: { p_active: boolean; p_persona: string }
+        Returns: undefined
+      }
+      sim_status: {
+        Args: never
+        Returns: {
+          active: boolean
+          emergency_since: string
+          last_tick: string
+          persona: string
+        }[]
+      }
+      sim_tick: { Args: never; Returns: undefined }
+      sim_walk: {
+        Args: { p_hi: number; p_last: number; p_lo: number; p_step: number }
+        Returns: number
       }
     }
     Enums: {

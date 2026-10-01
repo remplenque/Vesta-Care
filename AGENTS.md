@@ -82,7 +82,7 @@ Simulador ──► ingest_reading / ingest_bp ──► readings
 │   ├── ACCESSIBILITY.md       ← reglas de interfaz (vinculante)
 │   ├── OPEN-ISSUES.md         ← bloqueantes y decisiones pendientes
 │   └── archive/v3/            ← spec v3 (Flask + SQLite), DESCARTADA. Solo consulta
-├── supabase/migrations/       ← ★ esquema, motor de reglas, RPCs, RLS y seed (SQL aplicado)
+├── supabase/migrations/       ← ★ esquema, motor de reglas, RPCs, RLS, seed y simulador (pg_cron cada 5 s: sim_tick)
 ├── scripts/create-demo-user.sql ← crea a Don Luis y su contacto
 ├── src/
 │   ├── types/supabase.ts      ← ★ generado desde Supabase (Baptiste)

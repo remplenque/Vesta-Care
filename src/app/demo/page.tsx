@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui";
-import type { PersonaState, TickResult } from "@/lib/demo-server";
+import type { PersonaState } from "@/lib/demo-server";
 import { DEMO_USER_ID } from "@/lib/demo";
 import { moduleUi, sortModules } from "@/lib/modules";
 import { PERSONAS, type Persona, type PersonaKey } from "@/lib/personas";
-import { TICK_MS } from "@/lib/simulator";
+import { displayMobile } from "@/lib/phone";
 import { getSupabase } from "@/lib/supabase/client";
 import { ageFrom, firstName, initials, timeAgo } from "@/lib/time";
 
@@ -15,6 +15,10 @@ type LogEntry = { id: string; t: string; table: string; msg: string; color: stri
 
 const COLORS = { readings: "#9FC2E6", alerts: "#F0A49A", outbound: "#E8C48A", ok: "#9FD3A8", info: "#C9C1B5" };
 const POLL_MS = 3000;
+// The live simulator runs inside Supabase (pg_cron, migration 08_device_simulator), not in this tab
+const SIM_EVERY_S = 5;
+
+type SimRow = { persona: string; active: boolean; emergency_since: string | null; last_tick: string | null };
 
 const clock = () => new Date().toTimeString().slice(0, 8);
 
@@ -41,14 +45,12 @@ export default function ScenarioPanel() {
   const [states, setStates] = useState<PersonaState[] | null>(null);
   const [stateError, setStateError] = useState<string | null>(null);
   const [selected, setSelected] = useState<PersonaKey>("luis");
-  const [active, setActive] = useState<Record<PersonaKey, boolean>>({ luis: true, rosa: true, jorge: true });
+  const [sim, setSim] = useState<SimRow[] | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
-  const [simOn, setSimOn] = useState(false);
-  const [lastTick, setLastTick] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const seenAlerts = useRef<Partial<Record<PersonaKey, Map<string, string | null>>>>({});
   const seenMsgs = useRef<Set<string> | null>(null);
-  const tickStatus = useRef<Partial<Record<PersonaKey, string>>>({});
+  const seenEmergency = useRef<Partial<Record<string, string | null>>>({});
   const openedAt = useRef(new Date().toISOString());
 
   const push = useCallback((table: string, msg: string, color: string) => {
@@ -70,7 +72,22 @@ export default function ScenarioPanel() {
   // Poll the personas (alerts, acks, latest vitals) and the simulated WhatsApp feed for the event log
   useEffect(() => {
     const tick = async () => {
-      const [personas, { data: feed }] = await Promise.all([loadStates(), supabase.rpc("get_whatsapp_feed", { p_since: openedAt.current })]);
+      const [personas, { data: feed }, { data: simRows }] = await Promise.all([
+        loadStates(),
+        supabase.rpc("get_whatsapp_feed", { p_since: openedAt.current }),
+        supabase.rpc("sim_status"),
+      ]);
+
+      if (simRows) {
+        setSim(simRows);
+        for (const r of simRows) {
+          const who = firstName(PERSONAS.find((p) => p.key === r.persona)?.fullName);
+          const prev = seenEmergency.current[r.persona];
+          if (prev !== undefined && !prev && r.emergency_since) push(`simulator · ${who}`, "emergencia en curso: abrió la app", COLORS.alerts);
+          if (prev && !r.emergency_since) push(`simulator · ${who}`, "emergencia terminada: lecturas de vuelta en rango", COLORS.ok);
+          seenEmergency.current[r.persona] = r.emergency_since;
+        }
+      }
 
       for (const s of personas ?? []) {
         const who = firstName(PERSONAS.find((p) => p.key === s.key)?.fullName);
@@ -96,39 +113,17 @@ export default function ScenarioPanel() {
     return () => clearInterval(t);
   }, [supabase, loadStates, push]);
 
-  const simulate = useCallback(async () => {
-    const personas = PERSONAS.filter((p) => active[p.key]).map((p) => p.key);
-    if (!personas.length) return;
-    const res = await fetch("/api/demo/simulate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ personas }) });
-    const body = (await res.json().catch(() => ({}))) as { results?: TickResult[]; error?: string };
-    setLastTick(clock());
-    if (!res.ok) {
-      push("simulator", `error · ${body.error ?? res.status}`, COLORS.alerts);
-      return;
-    }
-    for (const r of body.results ?? []) {
-      const who = firstName(PERSONAS.find((p) => p.key === r.persona)?.fullName);
-      const changed = tickStatus.current[r.persona] !== r.status;
-      tickStatus.current[r.persona] = r.status;
-      if (r.status === "ok" && r.readings.length) {
-        const text = r.readings.map((x) => (x.episode ? `${x.text} (episodio: ${x.episode})` : x.text)).join(" · ");
-        push(`readings · ${who}`, `simulator · ${text}`, r.readings.some((x) => x.episode) ? COLORS.alerts : COLORS.readings);
-      } else if (r.status === "waiting_onboarding" && changed) {
-        push(`simulator · ${who}`, "sin módulos confirmados: esperando el onboarding", COLORS.info);
-      } else if (r.status === "missing" && changed) {
-        push(`simulator · ${who}`, "la cuenta no existe: usa Reiniciar para crearla", COLORS.info);
-      } else if (r.status === "error") {
-        push(`simulator · ${who}`, `error · ${r.error}`, COLORS.alerts);
-      }
-    }
-  }, [active, push]);
+  const active = Object.fromEntries(PERSONAS.map((p) => [p.key, sim?.find((r) => r.persona === p.key)?.active ?? false])) as Record<PersonaKey, boolean>;
+  const simOn = PERSONAS.some((p) => active[p.key]);
+  const lastTickAt = sim?.map((r) => r.last_tick).filter(Boolean).sort().at(-1) ?? null;
 
-  // Real-time simulator: one tick every TICK_MS while switched on (the first one fires on click)
-  useEffect(() => {
-    if (!simOn) return;
-    const t = setInterval(simulate, TICK_MS);
-    return () => clearInterval(t);
-  }, [simOn, simulate]);
+  /** Pauses or resumes the Supabase simulator for some personas */
+  async function setSimActive(keys: PersonaKey[], value: boolean) {
+    await Promise.all(keys.map((k) => supabase.rpc("sim_set_active", { p_persona: k, p_active: value })));
+    const { data } = await supabase.rpc("sim_status");
+    if (data) setSim(data);
+    push("simulator", `${value ? "activado" : "pausado"} · ${keys.map((k) => firstName(PERSONAS.find((p) => p.key === k)?.fullName)).join(", ")}`, COLORS.info);
+  }
 
   const persona = PERSONAS.find((p) => p.key === selected)!;
   const state = states?.find((s) => s.key === selected);
@@ -200,7 +195,6 @@ export default function ScenarioPanel() {
     const body = await res.json().catch(() => ({}));
     push(`reset_demo · ${who}`, res.ok ? `mode=${body.mode ?? mode} · listo` : `error · ${body.error ?? res.status}`, res.ok ? COLORS.ok : COLORS.alerts);
     delete seenAlerts.current[selected];
-    delete tickStatus.current[selected];
     await loadStates();
     setBusy(null);
   }
@@ -240,8 +234,8 @@ export default function ScenarioPanel() {
 
       {stateError && (
         <p role="alert" className="mx-8 mt-8 rounded-card bg-warn-soft p-5 text-body text-warn">
-          El simulador de 3 usuarios no está disponible: {stateError}. Configura SUPABASE_SERVICE_ROLE_KEY (solo servidor). Los escenarios siguen
-          funcionando para Luis.
+          Los datos de las personas no están disponibles: {stateError}. Configura SUPABASE_SERVICE_ROLE_KEY (solo servidor). El simulador sigue
+          corriendo en Supabase y los escenarios funcionan para Luis.
         </p>
       )}
 
@@ -251,17 +245,14 @@ export default function ScenarioPanel() {
             <h2 className="text-body-lg font-extrabold">Usuarios simulados</h2>
             <button
               type="button"
-              onClick={() => {
-                if (!simOn) simulate();
-                setSimOn(!simOn);
-              }}
-              disabled={!!stateError}
+              onClick={() => setSimActive(PERSONAS.map((p) => p.key), !simOn)}
+              disabled={!sim}
               aria-pressed={simOn}
               className="flex min-h-14 cursor-pointer items-center gap-2.5 rounded-btn border-2 border-line bg-surface px-4 text-body disabled:cursor-default disabled:opacity-60"
             >
               <span className={`h-2.5 w-2.5 rounded-full ${simOn ? "bg-ok" : "bg-line-strong"}`} />
-              {simOn ? `Simulador en tiempo real · cada ${TICK_MS / 1000} s` : "Simulador detenido"}
-              {simOn && lastTick && <span className="font-mono text-[0.875rem] text-ink-subtle">último {lastTick}</span>}
+              {simOn ? `Simulador en Supabase · cada ${SIM_EVERY_S} s` : "Simulador en pausa"}
+              {simOn && lastTickAt && <span className="font-mono text-[0.875rem] text-ink-subtle">último {new Date(lastTickAt).toTimeString().slice(0, 8)}</span>}
             </button>
           </div>
 
@@ -275,7 +266,7 @@ export default function ScenarioPanel() {
                 active={active[p.key]}
                 simOn={simOn}
                 onSelect={() => setSelected(p.key)}
-                onToggle={() => setActive((a) => ({ ...a, [p.key]: !a[p.key] }))}
+                onToggle={() => setSimActive([p.key], !active[p.key])}
               />
             ))}
           </div>
@@ -324,7 +315,7 @@ export default function ScenarioPanel() {
             ))}
             {state?.email && (
               <span className="text-body text-ink-muted">
-                PWA: entrar con <span className="font-mono">{state.email}</span> y DEMO_USER_PASSWORD
+                PWA: entrar con el celular <span className="font-mono">{displayMobile(persona.loginPhone)}</span>
               </span>
             )}
           </div>

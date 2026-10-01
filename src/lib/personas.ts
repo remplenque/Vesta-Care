@@ -17,6 +17,8 @@ export type Persona = {
   /** Login email. Luis's comes from DEMO_USER_EMAIL (he already exists); the others are created
    *  by /api/demo/reset with DEMO_USER_PASSWORD */
   email?: string;
+  /** Demo login number (no SMS): /api/auth/phone signs in as this persona */
+  loginPhone: string;
   /** Emergency contact seeded on reset (Luis's is created by scripts/create-demo-user.sql) */
   contact?: { name: string; relation: string; phone: string };
 };
@@ -27,6 +29,7 @@ export const PERSONAS: Persona[] = [
     fullName: "Luis Soto",
     birthDate: "1948-03-12",
     profile: "stable",
+    loginPhone: "+56911111111",
     label: "Todo en rango",
     blurb: "Lecturas normales en presión, glucosa y pastillero. El día a día sin sobresaltos.",
   },
@@ -35,8 +38,9 @@ export const PERSONAS: Persona[] = [
     fullName: "Rosa Muñoz",
     birthDate: "1945-06-21",
     profile: "unstable",
+    loginPhone: "+56922222222",
     label: "Genera alertas",
-    blurb: "Valores al límite y, cada pocos minutos, un episodio fuera de rango en presión, pulso o glucosa. Olvida sus remedios.",
+    blurb: "Valores al límite y olvida sus remedios. Al abrir la app tiene una emergencia: glucosa muy baja y pulso acelerado.",
     email: "rosa@vestacare.cl",
     contact: { name: "Carolina Muñoz", relation: "hija", phone: "+56 9 7654 3210" },
   },
@@ -45,6 +49,7 @@ export const PERSONAS: Persona[] = [
     fullName: "Jorge Pérez",
     birthDate: "1953-11-04",
     profile: "new",
+    loginPhone: "+56933333333",
     label: "Cuenta nueva",
     blurb: "Sin ficha, módulos ni contactos. Hace el onboarding en la PWA y el simulador parte solo con lo que confirme.",
     email: "jorge@vestacare.cl",
