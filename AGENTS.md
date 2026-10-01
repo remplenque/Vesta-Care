@@ -92,11 +92,11 @@ Simulador ──► ingest_reading / ingest_bp ──► readings
 │   │   ├── (app)/{inicio,pastillero,mateo,modulos}   ← 02, 04, 06, 07 (con barra inferior)
 │   │   ├── (focus)/{modulos/[id],alerta/[id],acompanante,como-seguir,cuidadores,mi-ficha,mis-remedios} ← 03, 05, 05b · tras entrar, guiado por voz o por chat (hooks/useGuide): acompañante → cómo seguir (voz/chat) → cuidadores → ficha/enfermedades → remedios
 │   │   ├── c/[token]          ← 08 vista del contacto (solo lectura, vía get_contact_view)
-│   │   ├── demo, demo/whatsapp ← 10 panel de escenarios · 09 WhatsApp simulado
-│   │   └── api/{mateo,tts,auth/phone,conditions/extract,medications/extract,ficha/extract,demo/reset} ← Mateo (Claude) · voz ElevenLabs · login por celular (demo, sin SMS) · agentes que extraen enfermedades y remedios de lo dicho · stub de ficha (P3) · reset del demo
+│   │   ├── demo, demo/whatsapp ← 10 panel de escenarios con 3 usuarios simulados · 09 WhatsApp simulado
+│   │   └── api/{mateo,tts,auth/phone,conditions/extract,medications/extract,ficha/extract,demo/{reset,simulate,state}} ← Mateo (Claude) · voz ElevenLabs · login por celular (demo, sin SMS) · agentes que extraen enfermedades y remedios de lo dicho · stub de ficha (P3) · operación del demo (clave de servicio)
 │   ├── components/            ← ui.tsx (Button, StatusBadge…), ModuleCard, CareProvider, Mascot (caras de Mateo/Emilia)
 │   ├── hooks/                 ← useSpeech (micrófono), useCompanionVoice (ElevenLabs + caché para "Repetir")
-│   └── lib/                   ← rules (espejo de evaluate_level), vitals, pillbox, time, copy · mateo/ (prompt, contexto, filtros, tts)
+│   └── lib/                   ← rules (espejo de evaluate_level), vitals, pillbox, time, copy · mateo/ (prompt, contexto, filtros, tts) · personas + simulator (generadores por módulo) + demo-server (solo servidor)
 ├── legacy/                    ← solo lectura · legacy/README.md
 │   ├── Mateo-main/            ← agente Mateo original (Python, 2025)
 │   └── vesta-v3/              ← scaffold de la v3 descartada

@@ -52,7 +52,8 @@ export async function loadCareData(supabase: Client, userId: string): Promise<Ca
     supabase.from("medications").select("*").eq("user_id", userId).order("name"),
     supabase.from("modules").select("*"),
     supabase.from("user_modules").select("*").eq("user_id", userId),
-    supabase.from("readings").select("*").eq("user_id", userId).gte("ts", since).order("ts").limit(2000),
+    // Newest first so the limit drops the oldest readings, not the live ones from the simulator
+    supabase.from("readings").select("*").eq("user_id", userId).gte("ts", since).order("ts", { ascending: false }).limit(2000),
     supabase.from("alerts").select("*").eq("user_id", userId).gte("ts", alertsSince).order("ts", { ascending: false }).limit(50),
     supabase.from("goals").select("*").eq("user_id", userId),
   ]);
@@ -63,7 +64,7 @@ export async function loadCareData(supabase: Client, userId: string): Promise<Ca
     medications: medications.data ?? [],
     modules: modules.data ?? [],
     userModules: userModules.data ?? [],
-    readings: readings.data ?? [],
+    readings: (readings.data ?? []).reverse(),
     alerts: alerts.data ?? [],
     goals: goals.data ?? [],
   };
