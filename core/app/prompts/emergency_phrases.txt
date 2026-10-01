@@ -1,0 +1,10 @@
+# Matched as substrings after lowercasing and removing accents. Checked before the LLM.
+me cai
+me caí
+no me puedo levantar
+me duele el pecho
+dolor en el pecho
+no puedo respirar
+me falta el aire
+auxilio
+llamen a una ambulancia

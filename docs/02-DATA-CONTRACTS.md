@@ -1,228 +1,333 @@
 # 02 · Contratos de datos
 
-> **Fuente de verdad del sistema.** Unity, el backend y el dashboard se desarrollan en paralelo
-> contra este documento. Si un campo no está aquí, no existe. Modificarlo requiere avisar al
-> equipo completo y actualizar este archivo en el mismo commit.
+> **Fuente de verdad del sistema.** Core, web y conectores simulados se desarrollan en paralelo
+> contra este documento. Si un campo no está aquí, no existe. Para cambiarlo hay que avisar al
+> equipo y actualizar este archivo en el mismo commit.
 >
-> **Congelación:** este documento se cierra a las **10:00** del día del evento. Después de esa
-> hora solo se aceptan cambios aditivos (campos opcionales nuevos), nunca renombres ni borrados.
+> **Congelación:** **12:00** del día del evento (se reemplazó el freeze de las 10:00 de la
+> versión ELEAM). Después solo se aceptan campos opcionales nuevos.
 
 ## 1. Convenciones
 
-- Timestamps: **UTC, ISO-8601 con Z** → `"2026-10-01T14:32:05.120Z"`
-- Identificadores: string, prefijo por tipo → `res_01`, `zone_hab_104`, `alr_7f3a`, `cg_02`
-- Coordenadas: metros desde la esquina inferior izquierda del plano, eje Y hacia el norte
-- Unidades: HR en lpm, SpO2 en %, glucosa en mg/dL, temperatura en °C
-- Todos los campos son obligatorios salvo que diga `opcional`
+- Timestamps: **UTC, ISO-8601 con Z** → `"2026-10-01T12:02:15.000Z"`. Se usa siempre la hora
+  real del reloj; no hay tiempo simulado. Las horas de la agenda (`"09:00"`) son locales de
+  `America/Santiago`.
+- IDs: string con prefijo por tipo → `per_01`, `ctc_01`, `dev_watch_01`, `itm_01`, `rem_…`,
+  `chk_…`, `alr_…`, `evt_…`, `ntf_…`
+- Todos los campos son obligatorios salvo que diga `opcional`. `null` solo donde se indica.
+- Ningún enum ni ID se muestra al usuario final: la web y los mensajes los traducen.
 
-## 2. Plano del centro — `shared/layout/eleam-01.json`
-
-Lo leen Unity y el dashboard. Nadie más define zonas.
+## 2. Persona
 
 ```json
 {
-  "facility_id": "eleam-01",
-  "name": "ELEAM Vesta Demo",
-  "bounds": { "width_m": 40.0, "height_m": 24.0 },
-  "zones": [
-    {
-      "zone_id": "zone_hab_104",
-      "name": "Habitación 104",
-      "type": "bedroom",
-      "polygon": [[2.0, 2.0], [8.0, 2.0], [8.0, 7.0], [2.0, 7.0]],
-      "camera_id": "cam_03",
-      "risk_weight": 1.0
-    }
+  "person_id": "per_01",
+  "display_name": "Don Luis",
+  "first_name": "Luis",
+  "age": 78,
+  "lives_alone": true,
+  "address_form": "usted",
+  "monitoring_paused": false,
+  "contacts": ["ctc_01", "ctc_02"]
+}
+```
+`address_form` ∈ `usted` · `tu`. Con `monitoring_paused: true` no se abren alertas ni se envían
+avisos; los recordatorios a la persona siguen funcionando.
+
+## 3. Contacto
+
+```json
+{
+  "contact_id": "ctc_01",
+  "name": "Carolina",
+  "relation": "hija",
+  "priority": 1,
+  "phone_e164": "+56912345678",
+  "channel": "whatsapp"
+}
+```
+`priority`: 1 = principal, 2 = secundario. `channel` ∈ `whatsapp` · `telegram`.
+
+## 4. Dispositivo (conector)
+
+```json
+{
+  "device_id": "dev_watch_01",
+  "source": "watch",
+  "name": "Reloj",
+  "status": "online",
+  "battery_pct": 87,
+  "last_seen": "2026-10-01T12:02:15.000Z"
+}
+```
+`source` ∈ `watch` · `pillbox` · `calendar` · `bondup` · `assistant` · `sim`
+`status` ∈ `online` · `offline`. Un dispositivo pasa a `offline` cuando no envía nada en 10
+minutos o cuando reporta `device_offline`.
+
+## 5. Agenda
+
+Ítems cargados por la familia (o importados de `calendar`/`bondup`). **El LLM nunca crea ni
+modifica ítems.**
+
+```json
+{
+  "item_id": "itm_01",
+  "person_id": "per_01",
+  "kind": "medication",
+  "title": "Losartán 50 mg",
+  "times": ["09:00", "21:00"],
+  "date": null,
+  "compartment": 2,
+  "tolerance_min": 30,
+  "escalation": [
+    { "after_min": 10, "action": "repeat_reminder" },
+    { "after_min": 30, "action": "notify_primary" },
+    { "after_min": 60, "action": "notify_secondary" }
   ],
-  "cameras": [
-    { "camera_id": "cam_03", "name": "Pasillo norte", "position": [5.0, 7.0], "yaw_deg": 180 }
-  ]
+  "source": "family",
+  "location": null
 }
 ```
 
-`type` ∈ `bedroom` · `corridor` · `dining` · `bathroom` · `common` · `outdoor` · `entrance`
+| Campo | Regla |
+|---|---|
+| `kind` | `medication` · `appointment` · `social` |
+| `times` | Horas locales `HH:MM`. Se repite a diario si `date` es `null` |
+| `date` | `opcional`, `YYYY-MM-DD` para eventos de un solo día (citas, actividades) |
+| `compartment` | Solo para `medication`; si no, `null` |
+| `escalation` | Solo para `medication`. Para `appointment` y `social`, `[]` (solo se recuerda) |
+| `escalation[].action` | `repeat_reminder` · `notify_primary` · `notify_secondary` |
+| `source` | `family` · `calendar` · `bondup` |
+| `location` | `opcional`, texto libre ("CESFAM Las Condes") |
 
-`risk_weight` multiplica la severidad: el baño es 1.5 (caídas más graves y menos visibles), el
-comedor 0.8 (siempre hay gente alrededor).
+Con `DEMO_MODE=true`, cada `after_min` y `tolerance_min` se divide por `ESCALATION_TIME_SCALE`
+(por ejemplo, `60` hace que los minutos duren segundos).
 
-## 3. Telemetría — `POST /v1/telemetry`
+## 6. Evento de conector — `POST /v1/events`
 
-Unity envía **un lote por segundo** con todos los residentes activos.
-
-```json
-{
-  "facility_id": "eleam-01",
-  "ts": "2026-10-01T14:32:05.120Z",
-  "ticks": [
-    {
-      "resident_id": "res_01",
-      "zone_id": "zone_hab_104",
-      "position": { "x": 5.2, "y": 4.1 },
-      "vitals": {
-        "hr_bpm": 78,
-        "spo2_pct": 96,
-        "glucose_mgdl": 112,
-        "temp_c": 36.6
-      },
-      "motion": {
-        "state": "walking",
-        "accel_magnitude_g": 1.02,
-        "seconds_since_movement": 0
-      },
-      "device": { "battery_pct": 84, "rssi_dbm": -62 }
-    }
-  ]
-}
-```
-
-`motion.state` ∈ `still` · `walking` · `sitting` · `lying` · `fallen`
-
-**Respuesta:** `202 Accepted`, cuerpo `{ "received": 12, "alerts_opened": 1 }`
-
-## 4. Eventos del simulador — `POST /v1/sim/events`
-
-Hechos discretos. Se envían al ocurrir, no en el lote periódico.
+Formato común para todas las fuentes. Se envía cuando el hecho ocurre.
 
 ```json
 {
   "event_id": "evt_a91c",
-  "ts": "2026-10-01T14:32:06.000Z",
-  "type": "fall_detected",
-  "resident_id": "res_01",
-  "zone_id": "zone_bano_1",
-  "payload": { "impact_g": 3.4 }
+  "ts": "2026-10-01T12:02:15.000Z",
+  "source": "pillbox",
+  "device_id": "dev_pillbox_01",
+  "person_id": "per_01",
+  "type": "compartment_opened",
+  "payload": { "compartment": 2 }
 }
 ```
 
-| `type` | Cuándo | `payload` |
+| `source` | `type` | `payload` |
 |---|---|---|
-| `fall_detected` | Impacto seguido de postura tendida | `impact_g` |
-| `panic_button` | El residente presiona SOS | `{}` |
-| `door_exit` | Cruce de zona `entrance` hacia afuera | `door_id` |
-| `device_removed` | Se quitó la pulsera | `{}` |
-| `manual_trigger` | El operador inyecta un escenario desde el panel | `scenario` |
+| `watch` | `fall_detected` | `{}` |
+| `watch` | `sos_pressed` | `{}` |
+| `pillbox` | `compartment_opened` | `{ "compartment": int }` |
+| `pillbox` | `confirm_pressed` | `{}` |
+| `pillbox` | `help_pressed` | `{}` (equivale a `sos_pressed`) |
+| `watch` · `pillbox` | `battery_low` | `{ "battery_pct": int }` |
+| `watch` · `pillbox` | `device_offline` | `{}` |
+| `calendar` · `bondup` | `item_upserted` | Un ítem de agenda (§5) con `source` igual al del evento |
 
-## 5. Alerta
+`event_id` es idempotente: un segundo POST con el mismo ID responde `200` sin efecto.
+**Respuesta:** `202 Accepted`, `{ "accepted": true }`.
 
-Objeto central del sistema. Lo produce `core`, nunca Unity ni el dashboard.
+## 7. Recordatorio
+
+```json
+{
+  "reminder_id": "rem_01_0900_20261001",
+  "item_id": "itm_01",
+  "person_id": "per_01",
+  "kind": "medication",
+  "title": "Losartán 50 mg",
+  "due_at": "2026-10-01T12:00:00.000Z",
+  "status": "due",
+  "resolution": null,
+  "resolved_at": null,
+  "escalation_step": 0
+}
+```
+`status` ∈ `scheduled` · `due` · `done` · `missed`
+`resolution` ∈ `compartment_opened` · `confirmed_button` · `confirmed_voice` · `null`
+
+Pasa de `due` a `done` con el primer `compartment_opened` del compartimento correcto, con
+`confirm_pressed` o con un "sí" explícito en el asistente (§10). Pasa a `missed` al vencer
+`tolerance_min` sin nada de lo anterior. `escalation_step` es la cantidad de pasos ya ejecutados.
+
+## 8. Check-in
+
+Pregunta activa del asistente a la persona después de un `fall_detected`.
+
+```json
+{
+  "checkin_id": "chk_01",
+  "person_id": "per_01",
+  "reason": "fall_detected",
+  "question": "¿Está bien, Don Luis?",
+  "opened_at": "2026-10-01T12:05:00.000Z",
+  "expires_at": "2026-10-01T12:05:30.000Z",
+  "status": "pending"
+}
+```
+`status` ∈ `pending` · `ok` · `help` · `no_response`
+**Responder:** `POST /v1/checkins/{id}/answer`, body `{ "answer": "ok" | "help" }`.
+Con `help` o `no_response` se abre una alerta `critical`.
+
+## 9. Alerta
+
+La produce solo el core.
 
 ```json
 {
   "alert_id": "alr_7f3a",
-  "rule_id": "GLUCOSE_CRITICAL_LOW",
+  "rule_id": "FALL_NO_RESPONSE",
   "severity": "critical",
   "status": "open",
-  "resident_id": "res_01",
-  "resident_name": "Carmen Soto",
-  "zone_id": "zone_hab_104",
-  "zone_name": "Habitación 104",
-  "opened_at": "2026-10-01T14:32:06.400Z",
-  "title": "Hipoglicemia severa",
-  "detail": "Glucosa en 54 mg/dL, sostenida por 45 segundos.",
-  "evidence": { "metric": "glucose_mgdl", "value": 54, "threshold": 60, "window_s": 45 },
-  "assigned_to": null,
+  "person_id": "per_01",
+  "person_name": "Don Luis",
+  "source": "watch",
+  "opened_at": "2026-10-01T12:05:30.400Z",
+  "title": "Posible caída sin respuesta",
+  "detail": "El reloj detectó una posible caída y Don Luis no respondió en 30 segundos.",
+  "acknowledged_by": null,
   "acknowledged_at": null,
+  "escalated_at": null,
   "resolved_at": null,
-  "notifications": [
-    { "channel": "whatsapp", "to": "cg_02", "status": "sent",
-      "at": "2026-10-01T14:32:07.100Z" }
-  ]
+  "notifications": []
 }
 ```
-
 `severity` ∈ `critical` · `warning` · `info`
 `status` ∈ `open` · `acknowledged` · `escalated` · `resolved`
 
-## 6. Residente
+| `rule_id` | Severidad | Cuándo |
+|---|---|---|
+| `FALL_NO_RESPONSE` | critical | Check-in de caída con `no_response` |
+| `FALL_HELP_REQUESTED` | critical | Check-in de caída con `help` |
+| `SOS` | critical | `sos_pressed` o `help_pressed` |
+| `EMERGENCY_PHRASE` | critical | El filtro determinista del asistente detectó una frase de emergencia |
+| `MEDICATION_NOT_CONFIRMED` | warning | Paso `notify_primary` de un recordatorio de medicación |
+| `MEDICAL_QUESTION` | info | El asistente recibió una pregunta clínica (flag del LLM o filtro) |
+| `FAMILY_CONTACT_REQUESTED` | info | La persona pidió hablar con su familia |
+| `DEVICE_ATTENTION` | info | `battery_low` o `device_offline` |
+
+**Dedupe:** si ya existe una alerta no resuelta con el mismo `(person_id, rule_id)`, no se abre
+otra.
+
+## 10. Asistente — `POST /v1/assistant/message`
 
 ```json
-{
-  "resident_id": "res_01",
-  "name": "Carmen Soto",
-  "age": 84,
-  "room_zone_id": "zone_hab_104",
-  "mobility": "walker",
-  "baseline": { "hr_bpm": [62, 92], "spo2_pct": [93, 99],
-                "glucose_mgdl": [85, 150], "temp_c": [36.0, 37.2] },
-  "conditions_tags": ["diabetes_t2", "hipertension"],
-  "photo_url": "/avatars/res_01.png"
-}
+{ "person_id": "per_01", "channel": "web_voice", "text": "¿qué tengo hoy?" }
 ```
+`channel` ∈ `web_voice` · `web_text` · `telegram` · `whatsapp`
 
-`mobility` ∈ `independent` · `cane` · `walker` · `wheelchair` · `bedridden`
-
-`conditions_tags` son etiquetas de ficción con fines de simulación: alimentan el perfil de
-vitales del simulador y el contexto del reporte IA. **No son datos clínicos reales.**
-
-## 7. Cuidador
-
+**Respuesta:**
 ```json
 {
-  "caregiver_id": "cg_02",
-  "name": "Pablo Muñoz",
-  "role": "tens",
-  "phone_e164": "+56912345678",
-  "zones_assigned": ["zone_hab_104", "zone_hab_105", "zone_pasillo_n"],
-  "on_shift": true
+  "reply": "Hoy tiene Losartán a las 9 y a las 21, y control en el CESFAM a las 15:00.",
+  "flags": {
+    "medical_question": false,
+    "wants_family_contact": false,
+    "confirms_medication": false,
+    "emergency": false
+  },
+  "actions_taken": [],
+  "fallback": false,
+  "suggestions": ["Bien, gracias", "Más o menos", "¿Qué tengo hoy?"]
 }
 ```
+- Las `flags` las produce el LLM o el filtro determinista; **las acciones las decide el core**.
+- `confirms_medication: true` solo cierra un recordatorio `due` si hay exactamente uno pendiente.
+  Si hay dos o más, el core responde preguntando cuál y no cierra ninguno.
+- `actions_taken` ∈ `alert_opened` · `reminder_confirmed` · `family_notified`, para que la web
+  pueda mostrarlo.
+- `fallback: true` cuando la respuesta vino de los textos fijos y no del modelo.
+- `suggestions`: 1 a 3 respuestas cortas (máximo 32 caracteres) que la persona puede tocar en
+  vez de hablar. Al tocarlas se envían como un mensaje normal. Las genera el LLM y el core descarta
+  las que hablen de medicamentos, dosis o emergencias. Las respuestas fijas traen opciones fijas.
 
-`role` ∈ `tens` · `nurse` · `supervisor` · `admin`
+`GET /v1/assistant/briefing?person_id=per_01` devuelve `{ "reply": str, "fallback": bool, "suggestions": [str] }` con el
+saludo y el resumen del día (el primer paso del demo).
 
-## 8. Endpoints REST
+## 11. Endpoints REST y WebSocket
 
 | Método | Ruta | Para qué |
 |---|---|---|
-| `POST` | `/v1/telemetry` | Ingesta de lote (Unity) |
-| `POST` | `/v1/sim/events` | Evento discreto (Unity) |
-| `GET` | `/v1/facility` | Devuelve `eleam-01.json` |
-| `GET` | `/v1/residents` | Lista de residentes con su último tick |
-| `GET` | `/v1/residents/{id}` | Ficha + serie de vitales del día |
-| `GET` | `/v1/alerts?status=open` | Cola de alertas |
-| `POST` | `/v1/alerts/{id}/ack` | Body `{ "caregiver_id": "cg_02" }` |
-| `POST` | `/v1/alerts/{id}/resolve` | Body `{ "caregiver_id": "cg_02", "note": "..." }` |
-| `GET` | `/v1/caregivers` | Turno actual |
-| `POST` | `/v1/reports/{resident_id}` | Genera reporte IA del día |
-| `GET` | `/v1/metrics` | Agregados para la vista de administración |
-| `GET` | `/health` | `{ "status": "ok", "sim_connected": true }` |
+| `POST` | `/v1/events` | Ingesta de conectores (§6) |
+| `GET` | `/v1/persons/{id}` | Persona + contactos + dispositivos |
+| `PATCH` | `/v1/persons/{id}` | Solo `{ "monitoring_paused": bool }` |
+| `GET` | `/v1/agenda?person_id=&date=` | Ítems y recordatorios del día |
+| `POST` | `/v1/agenda/items` | Crear o actualizar un ítem (§5), desde el panel de la familia |
+| `GET` | `/v1/timeline?person_id=&date=` | Eventos, recordatorios, check-ins y alertas del día, en orden |
+| `POST` | `/v1/checkins/{id}/answer` | §8 |
+| `GET` | `/v1/alerts?status=` | Alertas |
+| `GET` | `/v1/alerts/{id}` | Una alerta (para `/a/:id`) |
+| `POST` | `/v1/alerts/{id}/ack` | Body `{ "contact_id": "ctc_01" }` |
+| `POST` | `/v1/alerts/{id}/resolve` | Body `{ "contact_id": "ctc_01", "note": "opcional" }` |
+| `POST` | `/v1/assistant/message` | §10 |
+| `GET` | `/v1/assistant/briefing` | §10 |
+| `POST` | `/v1/demo/scenario` | Solo `DEMO_MODE`. Body `{ "scenario": "missed_medication" \| "fall" \| "sos" }` |
+| `POST` | `/v1/demo/reset` | Solo `DEMO_MODE`. Borra recordatorios, check-ins y alertas del día, y vuelve a la semilla |
+| `POST` | `/v1/channels/whatsapp/webhook` | Webhook de Twilio (form-urlencoded: `From`, `Body`, `NumMedia`). Responde TwiML `<Response><Message>…</Message></Response>` con la respuesta del asistente (§10, `channel: "whatsapp"`). Solo atiende números de `WHATSAPP_PERSON_NUMBERS`; valida `X-Twilio-Signature` si hay `TWILIO_AUTH_TOKEN` y `PUBLIC_CORE_URL` |
+| `GET` | `/v1/tts?text=&voice=` | Audio `audio/mpeg` en streaming con la voz de ElevenLabs. `voice` es un `name` de `/v1/tts/voices` (opcional, por defecto la primera). `503` si no está configurado o falla: la web cae a la voz del navegador |
+| `GET` | `/v1/tts/voices` | `[{ "name": "Emilia" }, { "name": "Mateo" }]`, las voces disponibles según `ELEVENLABS_VOICES` (`Nombre:voice_id,…`) |
+| `GET` | `/health` | `{ "status": "ok", "llm": bool, "tts": bool, "notify": "twilio" \| "telegram" \| "log" }` |
 
-## 9. WebSocket — `WS /v1/stream`
+`missed_medication` crea un recordatorio de medicación con `due_at` = ahora. `fall` y `sos`
+emiten el evento correspondiente del reloj.
 
-Envoltura común para todo mensaje empujado al dashboard:
+**`WS /v1/stream`.** Todos los mensajes llevan la envoltura
+`{ "type": str, "ts": str, "data": {} }`. Al conectarse, el primer mensaje es `snapshot`.
 
-```json
-{ "type": "alert.opened", "ts": "2026-10-01T14:32:06.400Z", "data": { } }
-```
-
-| `type` | `data` contiene |
+| `type` | `data` |
 |---|---|
-| `telemetry.tick` | El lote completo de la sección 3 |
-| `alert.opened` | Objeto alerta |
-| `alert.updated` | Objeto alerta (ACK, escalamiento, resolución) |
-| `notification.sent` | `{ alert_id, channel, to, status }` |
-| `sim.status` | `{ connected: bool, residents: int }` |
+| `snapshot` | `{ person, devices, reminders, checkins, alerts }` del día |
+| `event.received` | Evento §6 |
+| `reminder.updated` | Recordatorio §7 |
+| `checkin.updated` | Check-in §8 |
+| `alert.opened` · `alert.updated` | Alerta §9 |
+| `notification.sent` | Notificación §11.1 |
+| `assistant.said` | `{ "text": str, "channel": str }`: lo que dijo el asistente, para que la vista `/` lo hable |
 
-El cliente debe **ignorar tipos desconocidos** sin romperse. Eso permite agregar mensajes nuevos
-sin romper el dashboard.
+El cliente **ignora los tipos que no conoce**.
 
-## 10. Reporte IA — respuesta de `POST /v1/reports/{resident_id}`
+### 11.1 Notificación
 
 ```json
 {
-  "resident_id": "res_01",
-  "generated_at": "2026-10-01T18:00:00Z",
-  "period": "2026-10-01",
-  "summary": "Jornada estable con una descompensación en la tarde...",
-  "observations": [
-    "La glucosa bajó de 60 mg/dL a las 14:32 y se normalizó tras la atención.",
-    "Menor actividad que su promedio: 2.1 h fuera de la habitación."
-  ],
-  "suggested_follow_up": [
-    "Revisar horario de colación de la tarde con el equipo clínico."
-  ],
-  "data_quality_note": "Basado en telemetría simulada de 8 horas.",
-  "disclaimer": "Apoyo a la decisión. No constituye diagnóstico médico."
+  "notification_id": "ntf_01",
+  "alert_id": "alr_7f3a",
+  "contact_id": "ctc_01",
+  "channel": "whatsapp",
+  "status": "sent",
+  "at": "2026-10-01T12:05:31.100Z",
+  "error": null
 }
 ```
+`status` ∈ `sent` · `failed` · `skipped_rate_limit` · `logged`. `logged` significa que se escribió
+en el log en vez de enviarse (`NOTIFY_CHANNEL=log` o fallback del demo).
 
-El campo `disclaimer` es **obligatorio** y el dashboard debe renderizarlo siempre visible.
+## 12. Variables de entorno (`.env.example`)
+
+```
+DEMO_MODE=true
+ESCALATION_TIME_SCALE=60
+CHECKIN_TIMEOUT_S=30
+ESCALATION_ACK_S=60
+PUBLIC_WEB_URL=http://192.168.1.10:5173
+NOTIFY_CHANNEL=log               # twilio | telegram | log
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+TELEGRAM_BOT_TOKEN=
+PUBLIC_CORE_URL=                 # URL pública del túnel hacia :8000, ej. https://xxxx.trycloudflare.com
+WHATSAPP_PERSON_NUMBERS=         # números E.164 que hablan con el asistente como per_01, separados por coma
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-haiku-4-5
+ELEVENLABS_API_KEY=
+ELEVENLABS_VOICES=Emilia:6Gr4AVmTax1pMJO0lHRK,Mateo:9ZVfdvBemUaGEWZgCiv0
+ELEVENLABS_MODEL=eleven_flash_v2_5
+```
+`PUBLIC_WEB_URL` arma el link `/a/:id` de los WhatsApp; tiene que ser la IP del notebook en el
+hotspot.

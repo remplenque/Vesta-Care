@@ -1,7 +1,8 @@
-# Vesta Care
+# Vesta
 
-Centro de monitoreo para ELEAM (Establecimientos de Larga Estadía para Adultos Mayores).
-Gemelo digital en Unity + detección de emergencias + dashboard + alertas por WhatsApp + reportes con IA.
+Asistente centralizado para personas mayores que viven solas. Conecta el reloj, el pastillero, la
+agenda de citas y BondUP. Conversa por voz o chat, y avisa a la familia por WhatsApp cuando algo
+importante no tiene respuesta.
 
 **Hack4Seniors UDD · 1 de octubre de 2026**
 Equipo: Vicente Rodríguez · Bato · Luchoo
@@ -19,23 +20,22 @@ Lee **[`AGENTS.md`](AGENTS.md)** antes de escribir cualquier cosa. Es obligatori
 | [`docs/00-CONTEXT.md`](docs/00-CONTEXT.md) | Problema, usuarios, alcance, glosario |
 | [`docs/01-ARCHITECTURE.md`](docs/01-ARCHITECTURE.md) | Componentes, flujos, decisiones técnicas |
 | [`docs/02-DATA-CONTRACTS.md`](docs/02-DATA-CONTRACTS.md) | **Fuente de verdad.** Schemas y endpoints |
-| [`docs/03-MODULE-unity-sim.md`](docs/03-MODULE-unity-sim.md) | Simulador Unity |
-| [`docs/04-MODULE-backend.md`](docs/04-MODULE-backend.md) | Backend y motor de reglas |
-| [`docs/05-MODULE-dashboard.md`](docs/05-MODULE-dashboard.md) | Dashboard React |
-| [`docs/06-MODULE-alerts-whatsapp.md`](docs/06-MODULE-alerts-whatsapp.md) | Notificaciones |
-| [`docs/07-MODULE-ai-reports.md`](docs/07-MODULE-ai-reports.md) | Reportes con IA |
-| [`docs/08-BUILD-PLAN.md`](docs/08-BUILD-PLAN.md) | Prioridades, cronograma, guion del demo |
+| [`docs/03-MODULE-core.md`](docs/03-MODULE-core.md) | Backend: agenda, reglas, alertas |
+| [`docs/04-MODULE-assistant.md`](docs/04-MODULE-assistant.md) | Asistente de voz y chat |
+| [`docs/05-MODULE-web.md`](docs/05-MODULE-web.md) | Vistas de la persona, la familia y el operador |
+| [`docs/06-MODULE-notify.md`](docs/06-MODULE-notify.md) | WhatsApp y Telegram |
+| [`docs/07-BUILD-PLAN.md`](docs/07-BUILD-PLAN.md) | Prioridades, cronograma, guion del demo |
+| [`docs/archive/eleam/`](docs/archive/eleam/) | Versión anterior (centro de monitoreo ELEAM), descartada |
 
 ## Arranque rápido
 
 ```bash
 cp .env.example .env     # completar claves
-./scripts/dev.sh         # core en :8000, board en :5173
+./scripts/dev.sh         # core en :8000, web en :5173
 ```
-
-Unity se abre desde `sim/` y apunta a `http://localhost:8000`.
 
 ## Advertencia
 
-Sistema de **apoyo a la decisión**, no dispositivo médico. Todos los datos son sintéticos.
-Los umbrales son plausibles pero no están validados clínicamente.
+Vesta es un asistente de recordatorio y compañía, **no un dispositivo médico** y no diagnostica.
+Registra que se abrió un compartimento, no que se tomó un medicamento. Todos los datos son
+sintéticos.

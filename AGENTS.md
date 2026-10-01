@@ -6,15 +6,17 @@
 
 ## 1. Qué estamos construyendo
 
-**Vesta Care** es un centro de monitoreo para ELEAM (Establecimientos de Larga Estadía para
-Adultos Mayores). Un gemelo digital en Unity simula residentes y sus signos vitales; un backend
-detecta emergencias; un dashboard web las muestra sobre el plano del centro; WhatsApp avisa al
-cuidador más cercano; y un modelo de IA genera reportes por residente.
+**Vesta** es un **asistente centralizado** para personas mayores que viven solas. Se conecta a
+soluciones que ya existen: un reloj que detecta caídas, un pastillero, la agenda de citas y la app
+de comunidad BondUP. Junta su información, conversa con la persona por voz o chat y avisa a la
+familia por WhatsApp cuando algo importante no tiene respuesta. El objetivo es la independencia:
+que la persona siga en su casa, decidiendo ella.
 
-**No hay hardware.** Toda la telemetría es sintética y la produce Unity. Esto es deliberado y
-no es una limitación que haya que "arreglar": la simulación *es* el producto en esta etapa.
+**No hay hardware ni integraciones reales hoy.** Los conectores están simulados y publican en el
+mismo contrato que usaría la integración real.
 
-Contexto completo: `docs/00-CONTEXT.md`. Arquitectura: `docs/01-ARCHITECTURE.md`.
+El ELEAM y el pastillero como producto quedaron descartados; la versión ELEAM está archivada en
+`docs/archive/eleam/` y **no se construye contra ella**.
 
 ## 2. Orden de lectura obligatorio
 
@@ -22,89 +24,94 @@ Contexto completo: `docs/00-CONTEXT.md`. Arquitectura: `docs/01-ARCHITECTURE.md`
 |---|---|
 | Cualquier cosa | `docs/00-CONTEXT.md`, `docs/01-ARCHITECTURE.md` |
 | Cualquier endpoint, payload o mensaje | `docs/02-DATA-CONTRACTS.md` ← **fuente de verdad** |
-| `sim/` | `docs/03-MODULE-unity-sim.md` |
-| `core/` | `docs/04-MODULE-backend.md` |
-| `board/` | `docs/05-MODULE-dashboard.md` |
-| Notificaciones | `docs/06-MODULE-alerts-whatsapp.md` |
-| Reportes IA | `docs/07-MODULE-ai-reports.md` |
-| Priorización y tiempos | `docs/08-BUILD-PLAN.md` |
+| `core/` (agenda, reglas, alertas) | `docs/03-MODULE-core.md` |
+| El asistente o el LLM | `docs/04-MODULE-assistant.md` |
+| `web/` | `docs/05-MODULE-web.md` |
+| WhatsApp o Telegram | `docs/06-MODULE-notify.md` |
+| Priorización y tiempos | `docs/07-BUILD-PLAN.md` |
 
 ## 3. Estructura del repositorio
 
 ```
 /
-├── AGENTS.md                 ← este archivo
-├── docs/                     ← especificaciones (no código)
-├── sim/                      ← proyecto Unity (C#)
-├── core/                     ← backend FastAPI (Python 3.11+)
+├── AGENTS.md
+├── docs/                     ← especificaciones; docs/archive/ es historia, no spec
+├── core/                     ← FastAPI (Python 3.11+)
 │   ├── app/
 │   │   ├── main.py
 │   │   ├── models.py         ← Pydantic, espeja 02-DATA-CONTRACTS
-│   │   ├── rules.py          ← motor de reglas clínicas
+│   │   ├── agenda.py         ← recordatorios y escalamiento (determinista)
+│   │   ├── rules.py          ← evento → check-in o alerta
 │   │   ├── alerts.py         ← ciclo de vida de alertas
-│   │   ├── notify.py         ← WhatsApp / Telegram
-│   │   ├── reports.py        ← integración con modelo IA
-│   │   └── store.py          ← persistencia SQLite
+│   │   ├── assistant.py      ← filtro determinista + LLM de solo lectura
+│   │   ├── notify.py         ← WhatsApp / Telegram / log
+│   │   ├── demo.py           ← semilla, escenarios, reset
+│   │   ├── store.py          ← SQLite
+│   │   └── prompts/
 │   └── tests/
-├── board/                    ← dashboard React + Vite + Tailwind
+├── web/                      ← React + Vite + Tailwind
 │   └── src/
-│       ├── pages/
+│       ├── pages/            ← Home (/), Family (/familia), Alert (/a/:id), Sim (/sim)
 │       ├── components/
 │       └── lib/api.ts        ← único lugar que habla con el backend
-├── shared/
-│   └── layout/eleam-01.json  ← plano del centro, compartido Unity ↔ board
 └── scripts/
-    ├── dev.sh                ← levanta core + board
-    └── seed.py               ← datos de demo
+    └── dev.sh                ← levanta core + web
 ```
 
 ## 4. Reglas no negociables
 
-1. **No inventes endpoints, campos ni enums.** Si algo no está en `02-DATA-CONTRACTS.md`,
-   no existe. Si de verdad hace falta, agrégalo *primero* a ese documento, en el mismo commit,
-   y menciónalo en el mensaje del commit.
-2. **El plano es un solo archivo.** `shared/layout/eleam-01.json` es la única definición de
-   zonas y coordenadas. Unity y el dashboard lo leen; ninguno lo redefine.
-3. **Nunca hardcodees secretos.** Todo va por variables de entorno vía `.env` (hay `.env.example`).
-   Claves de Twilio y de la API de IA jamás entran al repositorio.
-4. **Esto no es un dispositivo médico.** Los umbrales son plausibles pero no están validados
-   clínicamente. Todo output visible al usuario que sugiera una condición de salud debe decir
-   que es un apoyo a la decisión, no un diagnóstico. Ver `docs/07-MODULE-ai-reports.md` §5.
-5. **Datos sintéticos únicamente.** Nombres, RUT y fichas de residentes son ficticios. No uses
-   datos de personas reales ni siquiera como ejemplo.
-6. **Falla ruidosamente en desarrollo, silenciosamente en demo.** Un error de red no puede dejar
-   el dashboard en blanco: degrada a último estado conocido y muestra un indicador de conexión.
+1. **No inventes endpoints, campos ni enums.** Si algo no está en `02-DATA-CONTRACTS.md`, no
+   existe. Si de verdad hace falta, agrégalo *primero* a ese documento, en el mismo commit, y
+   menciónalo en el mensaje del commit.
+2. **Recordatorios y escalamiento son deterministas.** Salen de la agenda cargada por la familia.
+   El LLM nunca decide horarios, dosis ni medicamentos, y nunca abre, cierra ni modifica alertas o
+   recordatorios: devuelve texto y banderas, y el core actúa.
+3. **El LLM no da consejo clínico.** No sugiere tomar, saltar, duplicar ni cambiar un
+   medicamento, y no interpreta síntomas. Ante esas preguntas deriva al médico y el core avisa a
+   la familia. Las frases de emergencia se detectan **antes** del LLM con un filtro fijo.
+4. **Se registra la apertura, no la ingesta.** Nunca escribas "tomó su pastilla" en ninguna
+   interfaz; escribe "se abrió el compartimento" o "confirmó".
+5. **WhatsApp con el mínimo de datos de salud.** Sin nombres de medicamentos, dosis ni
+   diagnósticos en los mensajes. El detalle queda en el panel.
+6. **Modo simulado por defecto.** Todo código que envíe mensajes reales tiene un canal `log` y
+   respeta `NOTIFY_CHANNEL`.
+7. **La persona controla su información.** Puede pausar el monitoreo. La familia no ve el
+   contenido de las conversaciones. Sin cámaras, sin micrófono siempre encendido, sin
+   grabaciones.
+8. **No es un dispositivo médico.** No diagnostiques ni lo presentes como tal. El asistente se
+   presenta como asistente, nunca como persona.
+9. **Nunca hardcodees secretos.** Todo va por `.env` (existe `.env.example`).
+10. **Datos sintéticos únicamente.** Personas, teléfonos y fichas son ficticios.
+11. **Falla ruidosamente en desarrollo y silenciosamente en demo.** Un error de red no puede
+    dejar una pantalla en blanco ni impedir que una alerta se abra y se reconozca.
 
 ## 5. Convenciones de código
 
-- **Idioma:** código, nombres de variables, commits y comentarios en **inglés**. Todo el texto
-  que ve el usuario final (dashboard, mensajes de WhatsApp, reportes) en **español de Chile**.
-- **Zona horaria:** `America/Santiago`. Timestamps se transmiten en **UTC ISO-8601 con sufijo Z**
-  y se formatean a hora local solo en la capa de presentación.
-- **Python:** 3.11+, tipado obligatorio en firmas públicas, `ruff` para lint, `pydantic` v2 para
-  todos los modelos de entrada y salida.
-- **TypeScript:** modo estricto. Nada de `any` salvo con comentario que lo justifique.
-- **C#:** convenciones estándar de Unity, un `MonoBehaviour` por archivo.
-- **Commits:** `tipo(ámbito): descripción` → `feat(core): add glucose threshold rule`.
+- **Idioma:** código, nombres, commits y comentarios en **inglés**. Todo texto que ve el usuario
+  final (web, WhatsApp, voz del asistente) en **español de Chile**, de "usted" por defecto y sin
+  infantilizar.
+- **Zona horaria:** `America/Santiago`. Los timestamps viajan en **UTC ISO-8601 con Z**; la hora
+  local solo se usa en la presentación y en las horas de la agenda (`"09:00"`).
+- **Python:** 3.11+, tipado en firmas públicas, `ruff`, `pydantic` v2.
+- **TypeScript:** modo estricto. Nada de `any` salvo con un comentario que lo justifique.
+- **Pruebas:** todo recordatorio y todo escalamiento tiene prueba automática (`03` §4).
+- **Commits:** `tipo(ámbito): descripción` → `feat(core): add fall check-in timeout`.
 - **Ramas:** `feat/`, `fix/`, `docs/`. Nadie commitea directo a `main` durante la integración.
 
 ## 6. Definición de "terminado"
 
-Una tarea está lista cuando:
 - [ ] Corre sin errores con `./scripts/dev.sh` desde un clon limpio
-- [ ] Respeta los contratos de `02-DATA-CONTRACTS.md` al pie de la letra
-- [ ] Los textos de usuario están en español y son legibles para alguien de 55 años
+- [ ] Respeta `02-DATA-CONTRACTS.md` al pie de la letra
+- [ ] Los textos de usuario están en español, son legibles y nunca dicen "tomó"
 - [ ] Tiene un camino de degradación si el servicio del que depende no responde
-- [ ] Los criterios de aceptación del documento de su módulo están todos marcados
+- [ ] Los criterios de aceptación del documento de su módulo están marcados
 
-## 7. Cómo trabajar en este repositorio
+## 7. Cómo trabajar
 
-- **Timeboxing:** si una tarea lleva más de 45 minutos sin producir algo que se pueda ver en
-  pantalla, detente y reporta el bloqueo. En una hackathon, un camino alternativo feo que
-  funciona vale más que el correcto que no termina.
-- **Mock antes que integración:** cada módulo debe correr contra datos falsos sin depender de
-  los otros dos. `core` trae un generador de telemetría de reemplazo por si Unity no está listo.
-- **No refactorices lo que funciona.** Después de la congelación de integración (ver
-  `08-BUILD-PLAN.md`) solo se aceptan cambios que arreglen el demo.
-- **Pregunta antes de instalar dependencias pesadas.** Nada de Docker, Kubernetes, Postgres ni
-  colas de mensajes: SQLite y procesos locales bastan y arrancan en segundos.
+- **Timeboxing:** si una tarea lleva más de 45 minutos sin producir algo visible, detente y
+  reporta el bloqueo.
+- **Mock antes que integración:** cada parte corre con datos falsos sin depender de las otras.
+- **Si una decisión afecta la seguridad de la medicación**, explica el riesgo y pregunta antes de
+  implementarla.
+- **No refactorices lo que funciona** después de la congelación.
+- **Pregunta antes de instalar dependencias pesadas.** Nada de Docker, Postgres ni colas.

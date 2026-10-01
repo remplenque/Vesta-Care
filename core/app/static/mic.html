@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FBF8F3">
+<title>Vesta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&display=swap">
+<style>
+  :root {
+    --outside: #ECE6DC;
+    --bg: #FBF8F3;
+    --surface: #FFFFFF;
+    --ink: #1C2430;        /* 15:1 on white */
+    --muted: #4A5565;      /* 7.6:1 on white */
+    --line: #E3DCD1;
+    --accent: #0F6B66;     /* 6.3:1 with white text */
+    --accent-soft: #DDF1EE;
+    --warm-soft: #FCEBD3;
+    --live: #B42318;       /* 6.5:1 on white */
+    --live-soft: #FDE4E1;
+    --halo: var(--accent-soft);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--outside);
+    color: var(--ink);
+    font-family: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* The whole UI is a phone-sized column; on a laptop it shows centered like a phone. */
+  .phone {
+    max-width: 430px; margin: 0 auto; height: 100dvh; overflow: hidden;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 480px) {
+    .phone { margin: 24px auto; height: calc(100dvh - 48px); border-radius: 36px;
+             box-shadow: 0 20px 60px rgba(28, 36, 48, .15); }
+  }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .brand { font-weight: 800; font-size: 22px; letter-spacing: .2px; }
+  .brand span { color: var(--accent); }
+
+  .who { display: flex; background: var(--surface); border: 2px solid var(--line);
+         border-radius: 999px; padding: 4px; }
+  .who button { font: inherit; font-size: 18px; font-weight: 700; border: 0; cursor: pointer;
+                padding: 10px 18px; border-radius: 999px; background: transparent; color: var(--muted);
+                min-height: 48px; }
+  .who button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+
+  main { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; padding-top: 12px; }
+  header, .status, .chips, form, .meta { flex-shrink: 0; }
+
+  .mascot { position: relative; flex-shrink: 0; width: min(290px, 74vw, 32dvh); aspect-ratio: 1;
+            transition: width .35s ease, transform .15s; border: 0; padding: 0; cursor: pointer;
+            border-radius: 50%; background: var(--halo); }
+  /* Once a conversation starts, the mascot steps back so the message has room. */
+  .chatting .mascot { width: min(180px, 46vw, 22dvh); }
+  .mascot:active { transform: scale(.97); }
+  .mascot:focus-visible { outline: 4px solid var(--accent); outline-offset: 6px; }
+  .mascot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .mascot svg[hidden] { display: none; }  /* "hidden" isn't honored on SVG elements by default */
+  .mascot::after { content: ""; position: absolute; inset: -10px; border-radius: 50%;
+                   border: 5px solid var(--live); opacity: 0; pointer-events: none; }
+
+  .ink { stroke: #1E1E1E; stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; }
+  .eyes, .talk, .smile, .brows { transform-box: fill-box; transform-origin: center; }
+  .eyes { animation: blink 6s infinite; }
+  .talk { display: none; }
+
+  .float { animation: float 4s ease-in-out infinite; }
+  .speaking .smile { display: none; }
+  .speaking .talk { display: inline; animation: talk .45s ease-in-out infinite alternate; }
+  .listening::after { opacity: 1; animation: ring 1.6s ease-in-out infinite; }
+  .listening .brows { transform: translateY(-4px); }
+  .thinking .eyes { transform: translate(4px, -4px); animation: none; }
+
+  @keyframes blink { 0%, 96%, 100% { transform: scaleY(1); } 98% { transform: scaleY(.1); } }
+  @keyframes talk { from { transform: scaleY(.35); } to { transform: scaleY(1); } }
+  @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+  @keyframes ring { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.04); opacity: .55; } }
+  @media (prefers-reduced-motion: reduce) {
+    .float, .eyes, .listening::after { animation: none; }
+  }
+
+  .status { font-size: 20px; font-weight: 700; color: var(--muted); text-align: center; min-height: 28px; }
+  .status.live { color: var(--live); }
+
+  .bubble { position: relative; width: 100%; flex: 0 1 auto; min-height: 110px; display: flex; gap: 12px;
+            background: var(--surface); border: 2px solid var(--line);
+            border-radius: 24px; padding: 16px 14px 16px 20px; box-shadow: 0 6px 18px rgba(28, 36, 48, .06); }
+  .bubble-text { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+                 -webkit-overflow-scrolling: touch; padding-right: 4px; }
+  .more { display: none; position: sticky; bottom: 0; margin: 6px 0 0; padding: 6px 0 0; font-size: 15px;
+          font-weight: 700; color: var(--accent); background: linear-gradient(transparent, var(--surface) 40%); }
+  .bubble.overflowing .more { display: block; }
+  .replay { flex-shrink: 0; align-self: flex-start; width: 68px; min-height: 68px; border-radius: 18px;
+            border: 2px solid var(--accent); background: var(--accent-soft); color: var(--accent); cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+            font: inherit; font-size: 14px; font-weight: 800; }
+  .replay svg { width: 28px; height: 28px; }
+  .replay:active { transform: scale(.96); }
+  .replay:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .bubble::before { content: ""; position: absolute; top: -12px; left: 50%; width: 20px; height: 20px;
+                    background: var(--surface); border-left: 2px solid var(--line); border-top: 2px solid var(--line);
+                    transform: translateX(-50%) rotate(45deg); }
+  .said { font-size: 17px; color: var(--muted); margin: 0 0 6px; min-height: 0; }
+  .said:empty { display: none; }
+  .reply { font-size: 25px; line-height: 1.4; margin: 0; font-weight: 600; }
+
+  .chips { width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+  .chip { font: inherit; font-size: 19px; font-weight: 700; min-height: 52px; padding: 10px 18px;
+          border-radius: 999px; border: 2px solid var(--accent); background: var(--surface); color: var(--accent);
+          cursor: pointer; }
+  .chip:active { background: var(--accent-soft); }
+  .chip:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .chip:disabled { opacity: .5; cursor: wait; }
+
+  form { display: flex; gap: 8px; margin-top: 14px; }
+  input { flex: 1; min-width: 0; font: inherit; font-size: 19px; padding: 14px 16px; min-height: 56px;
+          border-radius: 16px; border: 2px solid var(--line); background: var(--surface); color: var(--ink); }
+  input:focus { outline: 3px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+  input::placeholder { color: #6B7480; }
+  .send { font: inherit; font-size: 19px; font-weight: 800; padding: 0 20px; min-height: 56px; border: 0;
+          border-radius: 16px; background: var(--accent); color: #fff; cursor: pointer; }
+  .meta { font-size: 13px; color: var(--muted); text-align: center; margin-top: 8px; min-height: 18px; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <header>
+    <div class="brand">Ves<span>ta</span></div>
+    <div class="who" role="group" aria-label="Con quién quiere conversar">
+      <button type="button" data-name="Emilia" aria-pressed="true">Emilia</button>
+      <button type="button" data-name="Mateo" aria-pressed="false">Mateo</button>
+    </div>
+  </header>
+
+  <main>
+    <button id="mascot" class="mascot" type="button" aria-label="Tocar para hablar">
+      <!-- Emilia: original adult woman, comic-strip style -->
+      <svg id="face-Emilia" viewBox="0 0 220 220" aria-hidden="true">
+        <g class="float">
+          <path class="ink" fill="#6B3F2A" d="M52 112 C42 62 72 34 110 34 C148 34 178 62 168 112 L176 188 C160 194 146 190 140 186 L80 186 C74 190 60 194 44 188 Z"/>
+          <path class="ink" fill="#2E9C8F" d="M38 222 C42 194 70 180 110 180 C150 180 178 194 182 222 Z"/>
+          <path class="ink" fill="#FFFFFF" d="M94 181 L110 198 L126 181 Z"/>
+          <path class="ink" fill="#F5C9A3" d="M62 88 C64 62 84 52 110 52 C136 52 156 62 158 88 L162 126 C164 158 140 174 110 174 C80 174 56 158 58 126 Z"/>
+          <path class="ink" fill="#6B3F2A" d="M60 100 C56 62 84 46 112 48 C142 50 162 68 160 100 C152 80 134 68 108 70 C90 72 72 82 60 100 Z"/>
+          <path stroke="#9A6648" stroke-width="2.5" stroke-linecap="round" fill="none" d="M84 60 q20 -6 40 2 M56 132 q-4 22 2 40 M164 132 q4 22 -2 40"/>
+          <circle class="ink" cx="60" cy="146" r="4.5" fill="#F4C04E" stroke-width="2.5"/>
+          <circle class="ink" cx="160" cy="146" r="4.5" fill="#F4C04E" stroke-width="2.5"/>
+          <g class="brows"><path fill="none" stroke="#4A2C1D" stroke-width="3.5" stroke-linecap="round" d="M82 94 q9 -6 18 -1 M120 93 q9 -5 18 1"/></g>
+          <g class="eyes">
+            <ellipse cx="92" cy="108" rx="4.2" ry="7" fill="#1E1E1E"/><ellipse cx="128" cy="108" rx="4.2" ry="7" fill="#1E1E1E"/>
+            <path stroke="#1E1E1E" stroke-width="2.5" stroke-linecap="round" d="M86 102 l-5 -3 M134 102 l5 -3"/>
+          </g>
+          <circle cx="76" cy="134" r="8" fill="#F28B82" opacity=".45"/><circle cx="144" cy="134" r="8" fill="#F28B82" opacity=".45"/>
+          <ellipse class="ink" cx="110" cy="125" rx="8" ry="6.5" fill="#EF9C7E"/>
+          <path class="smile ink" fill="#9B2D3A" d="M86 142 Q110 172 134 142 Q110 152 86 142 Z"/>
+          <ellipse class="talk ink" cx="110" cy="151" rx="11" ry="9.5" fill="#9B2D3A"/>
+        </g>
+      </svg>
+      <!-- Mateo: original adult man -->
+      <svg id="face-Mateo" viewBox="0 0 220 220" aria-hidden="true" hidden>
+        <g class="float">
+          <path class="ink" fill="#3E6FA8" d="M30 222 C34 190 66 174 110 174 C154 174 186 190 190 222 Z"/>
+          <path class="ink" fill="#E8B48C" d="M88 150 L88 182 Q110 194 132 182 L132 150 Z"/>
+          <path class="ink" fill="#FFFFFF" d="M84 176 L110 196 L136 176 L132 204 L110 194 L88 204 Z"/>
+          <ellipse class="ink" cx="58" cy="112" rx="10" ry="14" fill="#E8B48C"/>
+          <ellipse class="ink" cx="162" cy="112" rx="10" ry="14" fill="#E8B48C"/>
+          <path class="ink" fill="#E8B48C" d="M62 84 C64 58 84 48 110 48 C136 48 156 58 158 84 L160 132 L144 160 Q110 178 76 160 L60 132 Z"/>
+          <path fill="#3B2A20" opacity=".22" d="M64 126 L76 156 Q110 174 144 156 L156 126 C150 146 132 154 110 154 C88 154 70 146 64 126 Z"/>
+          <path class="ink" fill="#2F2620" d="M60 96 C54 58 80 38 112 38 C144 38 168 58 160 96 L156 80 C150 70 140 66 128 66 C118 60 104 58 96 66 C84 66 70 72 64 82 Z"/>
+          <path class="ink" fill="none" d="M96 66 C100 54 110 46 122 44"/>
+          <g class="brows"><path fill="none" stroke="#2B1E16" stroke-width="7" stroke-linecap="round" d="M80 92 L100 90 M120 90 L140 92"/></g>
+          <g class="eyes"><ellipse cx="91" cy="106" rx="4.2" ry="7" fill="#1E1E1E"/><ellipse cx="129" cy="106" rx="4.2" ry="7" fill="#1E1E1E"/></g>
+          <ellipse class="ink" cx="110" cy="124" rx="11" ry="9" fill="#E08C72"/>
+          <path class="smile ink" fill="#5A2323" d="M90 142 Q110 164 130 142 Q110 150 90 142 Z"/>
+          <ellipse class="talk ink" cx="110" cy="148" rx="10" ry="8.5" fill="#5A2323"/>
+        </g>
+      </svg>
+    </button>
+
+    <div id="status" class="status" role="status" aria-live="polite">Toque a Emilia para hablar</div>
+
+    <section id="bubble" class="bubble">
+      <div id="bubbleText" class="bubble-text" aria-live="polite">
+        <p id="said" class="said"></p>
+        <p id="reply" class="reply">¡Hola! Soy Emilia. Tóqueme y conversemos.</p>
+        <p class="more" aria-hidden="true">↓ Deslice para leer más</p>
+      </div>
+      <button id="replay" class="replay" type="button" aria-label="Repetir en voz alta">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/>
+        </svg>
+        <span id="replayLabel">Repetir</span>
+      </button>
+    </section>
+
+    <div id="chips" class="chips" role="group" aria-label="Respuestas rápidas"></div>
+  </main>
+
+  <form id="textForm">
+    <input id="text" placeholder="O escriba aquí…" autocomplete="off" aria-label="Escribir un mensaje">
+    <button class="send" type="submit">Enviar</button>
+  </form>
+  <div id="meta" class="meta"></div>
+</div>
+
+<script>
+const NAMES = ["Emilia", "Mateo"];
+let personName = "";   // filled from /v1/persons/per_01, e.g. "Don Luis"
+const hi = () => personName ? `¡Hola, ${personName}!` : "¡Hola!";
+const HALOS = { Emilia: "var(--accent-soft)", Mateo: "var(--warm-soft)" };
+
+const mascot = document.getElementById("mascot");
+const statusEl = document.getElementById("status");
+const saidEl = document.getElementById("said");
+const replyEl = document.getElementById("reply");
+const metaEl = document.getElementById("meta");
+const chipsEl = document.getElementById("chips");
+const bubbleEl = document.getElementById("bubble");
+const bubbleTextEl = document.getElementById("bubbleText");
+const replayLabel = document.getElementById("replayLabel");
+let lastReply = "";
+
+function showReply(text) {
+  lastReply = text;
+  replyEl.textContent = text;
+  bubbleTextEl.scrollTop = 0;
+  requestAnimationFrame(updateOverflow);
+}
+
+function updateOverflow() {
+  const scrollable = bubbleTextEl.scrollHeight > bubbleTextEl.clientHeight + 4;
+  const atEnd = bubbleTextEl.scrollTop + bubbleTextEl.clientHeight >= bubbleTextEl.scrollHeight - 8;
+  bubbleEl.classList.toggle("overflowing", scrollable && !atEnd);
+}
+bubbleTextEl.addEventListener("scroll", updateOverflow, { passive: true });
+window.addEventListener("resize", updateOverflow);
+const START_SUGGESTIONS = ["¿Qué tengo hoy?", "Quiero conversar", "Cuénteme algo bonito"];
+
+function renderChips(list) {
+  chipsEl.innerHTML = "";
+  for (const text of (list || []).slice(0, 3)) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = text;
+    b.addEventListener("click", () => { if (!busy) { stopSpeaking(); send(text); } });
+    chipsEl.appendChild(b);
+  }
+}
+
+let ttsVoices = [];          // names ElevenLabs can speak, from /v1/tts/voices
+let ttsEnabled = false;
+let busy = false;
+let who = "Emilia";
+try { if (NAMES.includes(localStorage.getItem("vesta.voice"))) who = localStorage.getItem("vesta.voice"); } catch (e) {}
+
+function setState(state) {
+  mascot.classList.remove("listening", "thinking", "speaking");
+  if (state) mascot.classList.add(state);
+  statusEl.classList.toggle("live", state === "listening");
+  replayLabel.textContent = state === "speaking" ? "Detener" : "Repetir";
+  statusEl.textContent = {
+    listening: "Le escucho… toque de nuevo para terminar",
+    thinking: "Pensando…",
+    speaking: `${who} está hablando`,
+  }[state] || `Toque a ${who} para hablar`;
+}
+
+function choose(name, greet) {
+  who = name;
+  try { localStorage.setItem("vesta.voice", name); } catch (e) {}
+  // .hidden is an HTMLElement property; on SVG only the attribute works.
+  for (const n of NAMES) document.getElementById(`face-${n}`).toggleAttribute("hidden", n !== name);
+  document.getElementById("replay").addEventListener("click", () => {
+  if (mascot.classList.contains("speaking")) { stopSpeaking(); setState(null); return; }
+  if (lastReply && !busy) replay();
+});
+
+document.querySelectorAll(".who button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.name === name)));
+  mascot.style.setProperty("--halo", HALOS[name]);
+  mascot.setAttribute("aria-label", `Tocar para hablar con ${name}`);
+  setState(null);
+  if (greet) {
+    const hello = `${hi()} Soy ${name}, qué alegría que conversemos. ¿Cómo está hoy?`;
+    saidEl.textContent = "";
+    showReply(hello);
+    renderChips(START_SUGGESTIONS);
+    speak(hello);
+  }
+}
+
+// One reusable player: phones only allow audio from an element that was "unlocked" by a tap.
+const player = new Audio();
+const SILENCE = "data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YUAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+let unlocked = false;
+document.addEventListener("pointerdown", () => {
+  if (unlocked) return;
+  unlocked = true;
+  player.src = SILENCE;
+  player.play().catch(() => {});
+}, { once: true, capture: true });
+
+// ElevenLabs audio is kept per (voice, text) so "Repetir" replays the exact same recording
+// without asking ElevenLabs again.
+const audioCache = new Map();
+const AUDIO_CACHE_MAX = 30;
+let lastSpoken = null;   // { text, key } of the last thing said
+let speakToken = 0;      // bumps on every speak/stop so stale requests never play
+
+function rememberAudio(key, url) {
+  audioCache.set(key, url);
+  if (audioCache.size > AUDIO_CACHE_MAX) {
+    const [oldKey, oldUrl] = audioCache.entries().next().value;
+    URL.revokeObjectURL(oldUrl);
+    audioCache.delete(oldKey);
+  }
+}
+
+function stopSpeaking() {
+  speakToken++;
+  speechSynthesis.cancel();
+  player.pause();
+}
+
+function playUrl(url, text) {
+  player.src = url;
+  player.currentTime = 0;
+  player.onplaying = () => setState("speaking");
+  player.onended = () => setState(null);
+  player.play().catch((err) => {
+    setState(null);
+    // Autoplay blocked: the audio is cached, so one tap on "Repetir" plays it.
+    if (err && err.name === "NotAllowedError") statusEl.textContent = "Toque «Repetir» para escucharme";
+    else speakBrowser(text);
+  });
+}
+
+async function speak(text) {
+  stopSpeaking();
+  const token = speakToken;
+  const useTts = ttsEnabled && ttsVoices.includes(who);
+  const key = `${who}|${text}`;
+  lastSpoken = { text, key: useTts ? key : null };
+  if (!useTts) return speakBrowser(text);
+
+  let url = audioCache.get(key);
+  if (!url) {
+    try {
+      const res = await fetch(`/v1/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(who)}`);
+      if (!res.ok) throw new Error(`tts ${res.status}`);
+      url = URL.createObjectURL(await res.blob());
+      rememberAudio(key, url);
+    } catch (e) {
+      if (token !== speakToken) return;
+      ttsEnabled = false;  // don't pay the failed-request delay on every reply; reload to retry
+      lastSpoken.key = null;
+      metaEl.textContent = "Voz natural no disponible · usando la voz del teléfono";
+      return speakBrowser(text);
+    }
+  }
+  if (token !== speakToken) return;
+  playUrl(url, text);
+}
+
+function replay() {
+  if (!lastSpoken) return speak(lastReply);
+  stopSpeaking();
+  const url = lastSpoken.key && audioCache.get(lastSpoken.key);
+  if (url) playUrl(url, lastSpoken.text);   // same recording, no new request
+  else speakBrowser(lastSpoken.text);
+}
+
+function speakBrowser(text) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "es-CL";
+  u.rate = 0.9;
+  const voices = speechSynthesis.getVoices();
+  u.voice = voices.find(v => v.lang === "es-CL") || voices.find(v => v.lang.startsWith("es")) || null;
+  u.onstart = () => setState("speaking");
+  u.onend = () => setState(null);
+  speechSynthesis.speak(u);
+}
+
+async function send(text) {
+  busy = true;
+  document.querySelector(".phone").classList.add("chatting");
+  chipsEl.querySelectorAll("button").forEach(b => b.disabled = true);
+  saidEl.textContent = `Usted: “${text}”`;
+  setState("thinking");
+  const t0 = performance.now();
+  try {
+    const res = await fetch("/v1/assistant/message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ person_id: "per_01", channel: "web_voice", text }),
+    });
+    const data = await res.json();
+    showReply(data.reply);
+    renderChips(data.suggestions);
+    setState(null);
+    speak(data.reply);
+    const ms = Math.round(performance.now() - t0);
+    const flags = Object.entries(data.flags).filter(([, v]) => v).map(([k]) => k);
+    metaEl.textContent = `${ms} ms · ${data.fallback ? "respuesta fija" : "IA"}` +
+      (flags.length ? ` · ${flags.join(", ")}` : "") +
+      (data.actions_taken.length ? ` · ${data.actions_taken.join(", ")}` : "");
+  } catch (e) {
+    showReply("No me pude conectar. ¿Lo intentamos de nuevo?");
+    renderChips([text]);
+    setState(null);
+  } finally {
+    busy = false;
+  }
+}
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+if (SR) {
+  rec = new SR();
+  rec.lang = "es-CL";
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+  rec.onresult = (e) => {
+    const r = e.results[e.results.length - 1];
+    saidEl.textContent = `Usted: “${r[0].transcript}”`;
+    if (r.isFinal) send(r[0].transcript);
+  };
+  rec.onerror = (e) => {
+    setState(null);
+    if (e.error === "not-allowed") statusEl.textContent = "Necesito permiso para usar el micrófono";
+    else if (e.error === "no-speech") statusEl.textContent = "No le escuché. Toque de nuevo cuando quiera";
+  };
+  rec.onend = () => { if (mascot.classList.contains("listening")) setState(null); };
+}
+
+mascot.addEventListener("click", () => {
+  if (busy) return;
+  if (!rec) {
+    statusEl.textContent = "Este teléfono no reconoce voz. Escríbame abajo, por favor";
+    document.getElementById("text").focus();
+    return;
+  }
+  if (mascot.classList.contains("listening")) { rec.stop(); return; }
+  stopSpeaking();
+  setState("listening");
+  rec.start();
+});
+
+document.querySelectorAll(".who button").forEach(b =>
+  b.addEventListener("click", () => { if (b.dataset.name !== who) choose(b.dataset.name, true); }));
+
+document.getElementById("textForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const input = document.getElementById("text");
+  if (input.value.trim() && !busy) send(input.value.trim());
+  input.value = "";
+});
+
+speechSynthesis.getVoices();
+choose(who, false);
+showReply(`${hi()} Soy ${who}. Tóqueme y conversemos.`);
+fetch("/v1/persons/per_01").then(r => r.json()).then(p => {
+  personName = p.display_name || "";
+  if (!lastSpoken) showReply(`${hi()} Soy ${who}, qué alegría que conversemos. Tóqueme para hablar.`);
+}).catch(() => {});
+renderChips(START_SUGGESTIONS);
+
+fetch("/v1/tts/voices").then(r => r.json()).then(list => {
+  ttsVoices = list.map(v => v.name);
+  ttsEnabled = ttsVoices.length > 0;
+}).catch(() => {});
+</script>
+</body>
+</html>

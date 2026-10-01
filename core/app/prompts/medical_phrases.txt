@@ -1,0 +1,11 @@
+# Medication questions: always answered with the fixed referral text, never by the LLM.
+me tomo otra
+tomo otra
+me la tomo de nuevo
+doble dosis
+me salto
+saltarme la
+cuanto me tomo
+cuantas me tomo
+que dosis
+dejo de tomar
