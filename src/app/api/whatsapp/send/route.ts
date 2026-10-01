@@ -27,15 +27,41 @@ function absolutize(body: string) {
   return base ? body.replace(/(^|\s)(\/c\/[\w-]+)/g, `$1${base}$2`) : body;
 }
 
+/** Trial accounts only accept Twilio's own templates (ContentSid; error 21654 for free text). With
+ *  TWILIO_CONTENT_SID set, the message goes into that template's variables instead of Body.
+ *  TWILIO_CONTENT_MAP says what goes in each slot, e.g. "1=text,2=time" (text = our whole message
+ *  without the emoji header, time = "14:58", date = "1 de octubre"). */
+function templateParams(body: string): Record<string, string> | null {
+  const contentSid = process.env.TWILIO_CONTENT_SID;
+  if (!contentSid) return null;
+  const now = new Date();
+  const values: Record<string, string> = {
+    text: body.replace(/^\S+\s+Vesta Care:\s*/, "").replace(/\s+/g, " ").trim().slice(0, 900),
+    time: now.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", timeZone: "America/Santiago" }),
+    date: now.toLocaleDateString("es-CL", { day: "numeric", month: "long", timeZone: "America/Santiago" }),
+  };
+  const vars: Record<string, string> = {};
+  for (const pair of (process.env.TWILIO_CONTENT_MAP || "1=text").split(",")) {
+    const [slot, what] = pair.split("=").map((x) => x.trim());
+    if (slot && what) vars[slot] = values[what] ?? what;
+  }
+  return { ContentSid: contentSid, ContentVariables: JSON.stringify(vars) };
+}
+
 async function twilioSend(to: string, body: string) {
   const sid = process.env.TWILIO_ACCOUNT_SID!;
+  const content = templateParams(body);
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
     method: "POST",
     headers: {
       Authorization: `Basic ${Buffer.from(`${sid}:${process.env.TWILIO_AUTH_TOKEN}`).toString("base64")}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams({ From: process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+14155238886", To: `whatsapp:${to}`, Body: body }),
+    body: new URLSearchParams({
+      From: process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+14155238886",
+      To: `whatsapp:${to}`,
+      ...(content ?? { Body: body }),
+    }),
     signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) throw new Error(`twilio ${res.status}: ${(await res.text()).slice(0, 200)}`);
