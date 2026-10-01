@@ -175,11 +175,13 @@ function Guide() {
         </button>
       </div>
 
-      <div className="flex items-start gap-4">
-        <span className={`relative block aspect-square w-[min(120px,30vw)] shrink-0 rounded-full ${MASCOT_HALO[persona]} ${speech.listening ? "listening" : ""}`}>
+      {/* Companion centered on top, what it says right below (like a speech bubble) */}
+      <div className="flex flex-col items-center gap-4">
+        <span className={`relative block aspect-square w-[min(170px,42vw,22dvh)] shrink-0 rounded-full ${MASCOT_HALO[persona]} ${speech.listening ? "listening" : ""}`}>
           <MascotFace persona={persona} state={state} className="absolute inset-0 h-full w-full" />
         </span>
-        <div className="flex flex-1 flex-col gap-2 rounded-card border border-line bg-surface p-4" aria-live="polite">
+        <div className="relative flex w-full flex-col gap-3 rounded-card border border-line bg-surface p-5" aria-live="polite">
+          <span aria-hidden className="absolute -top-[9px] left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 border-t border-l border-line bg-surface" />
           <p className="text-lead font-semibold">{line || "Un momento…"}</p>
           <button
             type="button"
