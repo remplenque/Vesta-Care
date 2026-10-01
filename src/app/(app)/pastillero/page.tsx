@@ -90,7 +90,7 @@ export default function Pillbox() {
 
           if (first.status === "later") {
             return (
-              <div key={`${row.time}-later`} className="grid grid-cols-[64px_1fr] gap-3">
+              <div key={`${row.time}-later`} className="grid grid-cols-[minmax(64px,auto)_1fr] gap-3">
                 <TimeRail time={row.time} last={isLast} />
                 <div className="mb-3 flex flex-col gap-1 rounded-[20px] border border-dashed border-line-strong p-4">
                   {row.slots.map((s) => (
@@ -108,7 +108,7 @@ export default function Pillbox() {
           }
 
           return (
-            <div key={first.key} className="grid grid-cols-[64px_1fr] gap-3">
+            <div key={first.key} className="grid grid-cols-[minmax(64px,auto)_1fr] gap-3">
               <TimeRail time={row.time} highlight={first.key === dueKey} last={isLast} />
               {first.status === "taken" && (
                 <div className="mb-3 flex items-center gap-3.5 rounded-[20px] border border-line bg-surface p-4">

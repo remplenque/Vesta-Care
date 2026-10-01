@@ -57,6 +57,14 @@ export function CareProvider({ children, followCriticalAlerts = true }: { childr
       }, 400);
     };
 
+    // Hidden tabs (app in the background, screen off) freeze client navigation, so a critical
+    // alert that arrives then is opened as soon as the app is visible again
+    let pendingAlert: string | null = null;
+    const openAlert = (id: string) => {
+      if (document.visibilityState === "visible") router.push(`/alerta/${id}`);
+      else pendingAlert = id;
+    };
+
     const channel = supabase
       .channel(`care-${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "readings", filter: `user_id=eq.${userId}` }, scheduleRefresh)
@@ -64,18 +72,26 @@ export function CareProvider({ children, followCriticalAlerts = true }: { childr
       .on("postgres_changes", { event: "*", schema: "public", table: "alerts", filter: `user_id=eq.${userId}` }, (payload) => {
         scheduleRefresh();
         const alert = payload.new as Alert | undefined;
-        if (followCriticalAlerts && payload.eventType === "INSERT" && alert?.level === "critical") {
-          router.push(`/alerta/${alert.id}`);
-        }
+        if (followCriticalAlerts && payload.eventType === "INSERT" && alert?.level === "critical") openAlert(alert.id);
       })
       .subscribe();
 
     const onFocus = () => scheduleRefresh();
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      scheduleRefresh();
+      if (pendingAlert) {
+        router.push(`/alerta/${pendingAlert}`);
+        pendingAlert = null;
+      }
+    };
     window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       clearTimeout(timer.current);
       window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
     };
   }, [supabase, userId, router, followCriticalAlerts]);

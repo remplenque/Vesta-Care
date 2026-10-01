@@ -131,6 +131,17 @@ congelar) y guion del demo: `docs/acta-vesta-care.md` §8–9.
 Equipo: Vicente Rodríguez · Baptiste Vial · Luis-Felipe Cáceres. **Roles sin asignar**
 (`docs/OPEN-ISSUES.md` #5).
 
+### Pestaña de Mateo: no tocar
+
+**Luis-Felipe Cáceres (@Foumluis)** es dueño de todo lo visual y funcional de la pestaña del
+agente. Nadie más la edita (ni personas ni agentes de código) sin coordinarlo antes con él:
+
+- `src/app/(app)/mateo/`: pantalla del chat (06)
+- `src/hooks/useSpeech.ts`: voz (STT/TTS)
+- `src/app/api/mateo/`: backend del agente (hoy un stub)
+
+Si un cambio en otra parte rompe esa pestaña, avisar en vez de arreglarla.
+
 ## 7. Qué se reutiliza
 
 | Fuente | Qué sirve |

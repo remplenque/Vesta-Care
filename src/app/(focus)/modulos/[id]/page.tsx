@@ -110,9 +110,11 @@ export default function ModuleDetail() {
     .filter((r) => r.level !== "ok" && now.getTime() - new Date(r.ts).getTime() < 7 * 86_400_000)
     .sort((a, b) => b.primary - a.primary)[0];
 
+  const worstDay = worst ? dayLabel(worst.ts, tz, now) : "";
+  const when = worstDay === "Hoy" || worstDay === "Ayer" ? worstDay : `El ${worstDay.toLowerCase()}`;
   const note = week.total
     ? `Esta semana estuvo en rango ${week.ok} de ${week.total} días.${
-        worst ? ` El ${dayLabel(worst.ts, tz, now).toLowerCase()} llegó a ${worst.text}. Vale la pena comentarlo en su próximo control.` : " Siga así."
+        worst ? ` ${when} llegó a ${worst.text}. Vale la pena comentarlo en su próximo control.` : " Siga así."
       }`
     : "Todavía no tengo lecturas de esta semana.";
 

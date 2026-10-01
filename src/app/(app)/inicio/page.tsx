@@ -22,7 +22,7 @@ function summaryText(cards: CardModel[], pending: number) {
   const out = vitals.filter((c) => c.level !== "ok").map((c) => moduleUi(c.moduleId).short.toLowerCase());
   const inRange = vitals.filter((c) => c.level === "ok").map((c) => `su ${moduleUi(c.moduleId).short.toLowerCase()}`);
   const parts: string[] = [];
-  if (out.length) parts.push(`Revise su ${joinNames(out)}: está fuera de su rango.`);
+  if (out.length) parts.push(`Revise su ${joinNames(out)}: ${out.length > 1 ? "están" : "está"} fuera de su rango.`);
   else if (inRange.length) parts.push(`${joinNames(inRange).replace(/^s/, "S")} ${inRange.length > 1 ? "están" : "está"} en rango.`);
   if (pending > 0) parts.push(pending === 1 ? "Le queda un remedio por tomar hoy." : `Le quedan ${pending} remedios por tomar hoy.`);
   else parts.push("Ya registró todos sus remedios de hoy.");
@@ -129,7 +129,7 @@ export default function Home() {
         </section>
       )}
 
-      <div className="flex items-baseline justify-between gap-3 px-6 pt-7">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-6 pt-7">
         <h2 className="text-lead font-extrabold">Sus módulos</h2>
         <SimulatedNote />
       </div>
