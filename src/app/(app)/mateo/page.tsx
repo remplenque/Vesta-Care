@@ -190,14 +190,15 @@ function Chat() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col items-center gap-3 px-5 pt-3">
+      {/* Scrolls only if the screen is too short (or text is "Muy grande"), so nothing is ever hidden */}
+      <div className="flex min-h-0 flex-1 flex-col items-center gap-3 overflow-y-auto px-5 pt-3">
         <button
           type="button"
           onClick={tapFace}
           aria-label={speech.listening ? "Dejar de escuchar" : `Hablar con ${persona}`}
           className={`relative shrink-0 cursor-pointer rounded-full transition-[width] duration-300 ${MASCOT_HALO[persona]} ${
             speech.listening ? "listening" : ""
-          } ${chatting ? "w-[min(150px,40vw,20dvh)]" : "w-[min(240px,62vw,30dvh)]"} aspect-square`}
+          } ${chatting ? "w-[min(150px,40vw,18dvh)]" : "w-[min(240px,62vw,26dvh)]"} aspect-square`}
         >
           <MascotFace persona={persona} state={state} className="absolute inset-0 h-full w-full" />
         </button>

@@ -88,12 +88,12 @@ Simulador ──► ingest_reading / ingest_bp ──► readings
 │   ├── types/supabase.ts      ← ★ generado desde Supabase (Baptiste)
 │   ├── proxy.ts               ← sesión de Supabase + rutas protegidas (Next 16: ex-middleware)
 │   ├── app/
-│   │   ├── bienvenida, ingresar, onboarding/{ficha,confirmar,contactos}   ← 01a–01d
+│   │   ├── bienvenida, ingresar (celular), onboarding/{ficha,confirmar,contactos}   ← 01a–01d
 │   │   ├── (app)/{inicio,pastillero,mateo,modulos}   ← 02, 04, 06, 07 (con barra inferior)
-│   │   ├── (focus)/{modulos/[id],alerta/[id]}       ← 03, 05, 05b (pantalla completa)
+│   │   ├── (focus)/{modulos/[id],alerta/[id],acompanante} ← 03, 05, 05b · elegir Mateo/Emilia tras entrar
 │   │   ├── c/[token]          ← 08 vista del contacto (solo lectura, vía get_contact_view)
 │   │   ├── demo, demo/whatsapp ← 10 panel de escenarios · 09 WhatsApp simulado
-│   │   └── api/{mateo,tts,ficha/extract,demo/reset} ← Mateo (Claude) · voz ElevenLabs · stub de ficha (P3) · reset del demo
+│   │   └── api/{mateo,tts,auth/phone,ficha/extract,demo/reset} ← Mateo (Claude) · voz ElevenLabs · login por celular (demo, sin SMS) · stub de ficha (P3) · reset del demo
 │   ├── components/            ← ui.tsx (Button, StatusBadge…), ModuleCard, CareProvider, Mascot (caras de Mateo/Emilia)
 │   ├── hooks/                 ← useSpeech (micrófono), useCompanionVoice (ElevenLabs + caché para "Repetir")
 │   └── lib/                   ← rules (espejo de evaluate_level), vitals, pillbox, time, copy · mateo/ (prompt, contexto, filtros, tts)
