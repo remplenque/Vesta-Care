@@ -64,10 +64,12 @@ function Guide() {
   const name = firstName(data?.profile?.full_name);
   const existing = (data?.contacts ?? []).map((c) => firstName(c.name));
 
+  // What is shown and what is heard can differ: the screen shows "9 1234 5678", the voice reads it
+  // digit by digit so it is easy to check by ear
   const say = useCallback(
-    (text: string) => {
+    (text: string, spoken?: string) => {
       setLine(text);
-      voice.speak(text, persona);
+      voice.speak(spoken ?? text, persona);
     },
     [persona, voice],
   );
@@ -123,7 +125,10 @@ function Guide() {
     if (n.length < 2) return say("Disculpe, no le alcancé a escuchar el nombre. ¿Me lo repite, por favor?");
     setContactName(n);
     setStep("confirm");
-    say(`Voy a guardar a ${n}, con el número ${spokenMobile(phone)}. ¿Está bien?`);
+    say(
+      `Voy a guardar a ${n}, con el número ${displayMobile(phone)}. ¿Está bien?`,
+      `Voy a guardar a ${n}, con el número ${spokenMobile(phone)}. ¿Está bien?`,
+    );
   }
 
   async function save() {
